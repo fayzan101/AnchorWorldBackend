@@ -140,8 +140,16 @@ export class AuthService {
     // Store reset token
     await this.userRepository.setResetToken(user.id, resetToken, expiresAt);
 
-    // Send reset email
-    await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+    // Send reset email (required when user exists)
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+    } catch (error) {
+      console.error("[forgot-password] Failed to send reset email:", error);
+      throw new AppError(
+        "Unable to send password reset email. Please try again later.",
+        503
+      );
+    }
 
     return { message: 'If email exists, reset link has been sent' };
   }

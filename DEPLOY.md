@@ -89,6 +89,23 @@ npm run migration:show
 
 Browser: https://app.anchorworld.org/api/docs
 
+### Email (forgot password)
+
+Password reset emails require SMTP in `.env` on the server:
+
+```bash
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...   # Gmail: use an App Password, not your login password
+EMAIL_FROM=noreply@anchorworld.org
+FRONTEND_URL=https://app.anchorworld.org
+```
+
+After updating `.env`, restart PM2: `pm2 restart anchor-backend`
+
+Test via Swagger `POST /api/auth/forgot-password` with a registered email, then check `pm2 logs anchor-backend` for `Password reset email sent` or SMTP errors.
+
 ---
 
 ## First-time PM2 setup (only if process does not exist)

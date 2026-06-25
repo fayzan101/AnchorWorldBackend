@@ -36,7 +36,8 @@ export class EmailService {
       throw new Error("Email is not configured");
     }
 
-    const resetUrl = `https://app.anchorworld.org/reset-password?token=${token}`;
+    const resetBase = config.frontend.url.replace(/\/$/, "");
+    const resetUrl = `${resetBase}/reset-password?token=${token}`;
 
     const mailOptions = {
       from: config.email.from || `"Anchor App" <${config.email.user}>`,
