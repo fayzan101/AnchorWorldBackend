@@ -49,8 +49,8 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + 7);
     await this.refreshTokenRepository.create(user.id, refreshToken, expiresAt);
 
-    // Send welcome email (async, don't wait)
-    this.emailService.sendWelcomeEmail(user.email, user.full_name).catch(console.error);
+    // Welcome email is best-effort and skipped when SMTP is not configured (e.g. CI).
+    void this.emailService.sendWelcomeEmail(user.email, user.full_name);
 
     return {
       user,

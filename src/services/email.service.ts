@@ -2,37 +2,40 @@ import nodemailer from "nodemailer";
 import { config } from "../config/environment";
 
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null;
 
   constructor() {
-    // this.transporter = nodemailer.createTransport({
-    //   host: config.email.host,
-    //   port: config.email.port,
-    //   // secure: false,
-    //   auth: {
-    //     user: config.email.user,
-    //     pass: config.email.password,
-    //   },
-    // });
+    this.transporter = EmailService.isConfigured()
+      ? nodemailer.createTransport({
+          host: config.email.host,
+          port: Number(config.email.port),
+          secure: false,
+          auth: {
+            user: config.email.user,
+            pass: config.email.password,
+          },
+          tls: {
+            rejectUnauthorized: true,
+          },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+        })
+      : null;
+  }
 
-    this.transporter = nodemailer.createTransport({
-      host: config.email.host,
-      port: Number(config.email.port), // 587
-      secure: false, // Required for STARTTLS on 587
-      auth: {
-        user: config.email.user,
-        pass: config.email.password,
-      },
-      tls: {
-        // Optional: only for self-signed certs (not needed for Gmail)
-        rejectUnauthorized: true,
-      },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-    });
+  static isConfigured(): boolean {
+    return Boolean(config.email.user && config.email.password);
+  }
+
+  private canSendOptionalMail(): boolean {
+    return EmailService.isConfigured() && config.server.nodeEnv !== "test";
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+    if (!this.transporter) {
+      throw new Error("Email is not configured");
+    }
+
     const resetUrl = `https://app.anchorworld.org/reset-password?token=${token}`;
 
     const mailOptions = {
@@ -62,6 +65,10 @@ export class EmailService {
   }
 
   async sendWelcomeEmail(email: string, fullName: string): Promise<void> {
+    if (!this.canSendOptionalMail() || !this.transporter) {
+      return;
+    }
+
     const mailOptions = {
       from: config.email.from || `"Anchor App" <${config.email.user}>`,
       to: email,
@@ -79,9 +86,8 @@ export class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
       console.log(`Welcome email sent to ${email}`);
-    } catch (error) {
-      console.error("Error sending welcome email:", error);
-      // Don't throw error for welcome email failure
+    } catch {
+      // Welcome email is best-effort; never fail registration or tests.
     }
   }
 }
