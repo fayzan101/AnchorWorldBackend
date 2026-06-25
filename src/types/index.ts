@@ -72,6 +72,7 @@ export interface PaginationQuery {
 export interface UserListQuery extends PaginationQuery {
   gender?: Gender;
   search?: string;
+  purpose?: "search";
 }
 
 // New: Enhanced user response with relationship status

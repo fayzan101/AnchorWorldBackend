@@ -1,4 +1,5 @@
 import { Gender } from "./index";
+import { PostResponse } from "./post.types";
 
 export type ConnectionStatus =
   | "none"
@@ -93,4 +94,41 @@ export interface CommunityProfileUpdateDto {
   conversation_style?: string;
   humor_type?: string;
   hobbies?: string[];
+}
+
+export interface CommunityOnboardingDto {
+  bio?: string;
+  interests?: string[];
+  hobbies?: string[];
+  humor_type?: string;
+  conversation_style?: string;
+  city?: string;
+  country?: string;
+  location_opt_in?: boolean;
+  suggested_circle_ids: string[];
+}
+
+export interface OnboardingStatusResponse {
+  completed: boolean;
+  onboarding_completed_at: Date | null;
+  suggested_circles: CircleListItem[];
+  joined_circle_count: number;
+}
+
+export interface ProfileLocationUpdateDto {
+  city: string;
+  country?: string;
+  location_opt_in: boolean;
+}
+
+export interface DiscoverLocalCircleActivity {
+  circle_id: string;
+  circle_name: string;
+  posts: PostResponse[];
+}
+
+export interface DiscoverLocalResponse {
+  local_posts: PostResponse[];
+  active_circles: Array<CircleListItem & { post_count_in_city: number }>;
+  recent_circle_activity: DiscoverLocalCircleActivity[];
 }

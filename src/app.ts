@@ -22,6 +22,8 @@ import pointsRoutes from "./routes/points.routes";
 import circleRoutes from "./routes/circle.routes";
 import postRoutes from "./routes/post.routes";
 import commentRoutes from "./routes/comment.routes";
+import onboardingRoutes from "./routes/onboarding.routes";
+import discoverRoutes from "./routes/discover.routes";
 
 export function createApp(): Application {
   const app = express();
@@ -72,6 +74,8 @@ export function createApp(): Application {
   app.use(`${apiPrefix}/circles`, circleRoutes);
   app.use(`${apiPrefix}/posts`, postRoutes);
   app.use(`${apiPrefix}/comments`, commentRoutes);
+  app.use(`${apiPrefix}/onboarding`, onboardingRoutes);
+  app.use(`${apiPrefix}/discover`, discoverRoutes);
 
   setupSwagger(app);
   app.use(notFoundHandler);

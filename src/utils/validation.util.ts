@@ -124,21 +124,6 @@ export class ValidationUtil {
     ];
   }
 
-  static userListQuery(): ValidationChain[] {
-    return [
-      ...this.pagination(),
-      query("gender")
-        .optional()
-        .isIn(Object.values(Gender))
-        .withMessage("Invalid gender value"),
-      query("search")
-        .optional()
-        .trim()
-        .isLength({ max: 100 })
-        .withMessage("Search query too long"),
-    ];
-  }
-
   static forgotPassword(): ValidationChain[] {
     return [
       body("email")
@@ -192,6 +177,86 @@ export class ValidationUtil {
         .trim()
         .isLength({ min: 3, max: 2000 })
         .withMessage("Comment must be between 3 and 2000 characters"),
+    ];
+  }
+
+  static communityOnboarding(): ValidationChain[] {
+    return [
+      body("bio")
+        .optional()
+        .trim()
+        .isLength({ max: 1000 })
+        .withMessage("Bio must not exceed 1000 characters"),
+      body("city")
+        .trim()
+        .notEmpty()
+        .withMessage("City is required")
+        .isLength({ max: 255 }),
+      body("country")
+        .optional()
+        .trim()
+        .isLength({ max: 255 }),
+      body("location_opt_in")
+        .optional()
+        .isBoolean()
+        .withMessage("location_opt_in must be a boolean"),
+      body("humor_type")
+        .optional()
+        .trim()
+        .isLength({ max: 255 }),
+      body("conversation_style")
+        .optional()
+        .trim()
+        .isLength({ max: 255 }),
+      body("interests")
+        .optional()
+        .isArray({ min: 1 })
+        .withMessage("interests must be a non-empty array"),
+      body("hobbies")
+        .optional()
+        .isArray({ min: 1 })
+        .withMessage("hobbies must be a non-empty array"),
+      body("suggested_circle_ids")
+        .isArray({ min: 2 })
+        .withMessage("Join at least 2 circles"),
+      body("suggested_circle_ids.*")
+        .isUUID()
+        .withMessage("Each suggested_circle_id must be a valid UUID"),
+    ];
+  }
+
+  static updateProfileLocation(): ValidationChain[] {
+    return [
+      body("city")
+        .trim()
+        .notEmpty()
+        .withMessage("City is required")
+        .isLength({ max: 255 }),
+      body("country")
+        .optional()
+        .trim()
+        .isLength({ max: 255 }),
+      body("location_opt_in")
+        .isBoolean()
+        .withMessage("location_opt_in must be a boolean"),
+    ];
+  }
+
+  static userListQuery(): ValidationChain[] {
+    return [
+      ...this.pagination(),
+      query("purpose")
+        .equals("search")
+        .withMessage('purpose=search is required to list users'),
+      query("gender")
+        .optional()
+        .isIn(Object.values(Gender))
+        .withMessage("Invalid gender value"),
+      query("search")
+        .optional()
+        .trim()
+        .isLength({ min: 1, max: 100 })
+        .withMessage("Search query must be between 1 and 100 characters"),
     ];
   }
 }

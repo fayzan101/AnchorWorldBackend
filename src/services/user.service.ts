@@ -7,6 +7,7 @@ import { HobbyRepository } from "../repositories/hobby.repository";
 import {
   CommunityProfileUpdateDto,
   OwnProfile,
+  ProfileLocationUpdateDto,
   PublicUserProfile,
 } from "../types/community.types";
 import { PaginatedResponse, UserListQuery } from "../types";
@@ -16,7 +17,6 @@ import {
   toOwnProfile,
   toPublicUser,
 } from "../utils/user-response.mapper";
-import { PointTypes } from "../constants/point-types";
 
 const DEPRECATED_PROFILE_FIELDS = [
   "seeking_relation",
@@ -79,8 +79,6 @@ export class UserService {
       throw new AppError("User not found", 404);
     }
 
-    const wasCompleted = Boolean(user.profile_completed);
-
     DEPRECATED_PROFILE_FIELDS.forEach((field) => {
       if (data[field] !== undefined) {
         console.warn(
@@ -109,19 +107,37 @@ export class UserService {
       user.hobbies = foundHobbies;
     }
 
-    user.profile_completed = true;
-
     const updatedUser = await this.userRepository.save(user);
 
-    if (!wasCompleted && updatedUser.profile_completed) {
-      await this.pointsService.awardPointsOnce(
-        userId,
-        100,
-        PointTypes.PROFILE_COMPLETE,
-        undefined,
-        "Profile completed"
-      );
+    const [{ balance }, circles, postCount] = await Promise.all([
+      this.pointsService.getBalance(userId),
+      this.circleService.getUserCircleSummaries(userId),
+      this.postService.countUserPosts(userId),
+    ]);
+
+    return toOwnProfile(updatedUser, {
+      pointsBalance: balance,
+      postCount,
+      circles,
+    });
+  }
+
+  async updateProfileLocation(
+    userId: string,
+    data: ProfileLocationUpdateDto
+  ): Promise<OwnProfile> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppError("User not found", 404);
     }
+
+    user.city = data.city.trim();
+    if (data.country !== undefined) {
+      user.country = data.country.trim() || null;
+    }
+    user.location_opt_in = data.location_opt_in;
+
+    const updatedUser = await this.userRepository.save(user);
 
     const [{ balance }, circles, postCount] = await Promise.all([
       this.pointsService.getBalance(userId),
@@ -186,6 +202,13 @@ export class UserService {
   }
 
   async getAllUsers(query: UserListQuery, currentUserId: string) {
+    if (query.purpose !== "search") {
+      throw new AppError(
+        'User browse requires query parameter purpose=search. Use GET /api/discover/local for community discovery.',
+        400
+      );
+    }
+
     const page = query.page || 1;
     const limit = query.limit || 20;
 

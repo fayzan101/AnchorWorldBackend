@@ -30,6 +30,13 @@ router.put(
   userController.updateProfile
 );
 
+router.put(
+  '/location',
+  ValidationUtil.updateProfileLocation(),
+  validate,
+  userController.updateProfileLocation
+);
+
 /**
  * @route   POST /api/profile/picture
  * @desc    Upload profile picture

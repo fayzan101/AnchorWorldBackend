@@ -18,7 +18,15 @@ export class HobbyRepository {
   }
 
   async findByIds(ids: string[]): Promise<Hobby[]> {
+    if (ids.length === 0) return [];
     return await this.repository.findBy({ id: In(ids) });
+  }
+
+  async findByName(name: string): Promise<Hobby | null> {
+    return await this.repository
+      .createQueryBuilder("hobby")
+      .where("LOWER(hobby.name) = LOWER(:name)", { name: name.trim() })
+      .getOne();
   }
 
   async findAll(): Promise<Hobby[]> {

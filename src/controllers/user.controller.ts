@@ -30,6 +30,16 @@ export class UserController {
     }
   };
 
+  updateProfileLocation = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const profile = await this.userService.updateProfileLocation(userId, req.body);
+      ResponseUtil.success(res, profile, 'Location updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
   uploadProfilePicture = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
@@ -74,7 +84,8 @@ export class UserController {
       const query: UserListQuery = {
         page: req.query.page ? parseInt(req.query.page as string) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
-        gender: req.query.gender as any,
+        purpose: req.query.purpose as UserListQuery["purpose"],
+        gender: req.query.gender as UserListQuery["gender"],
         search: req.query.search as string,
       };
 

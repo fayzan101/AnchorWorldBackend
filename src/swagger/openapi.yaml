@@ -282,6 +282,33 @@ paths:
                       data:
                         $ref: "#/components/schemas/OwnProfile"
 
+  /profile/location:
+    put:
+      tags: [Profile]
+      summary: Update profile location settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileLocationUpdate"
+      responses:
+        "200":
+          description: Location updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OwnProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /profile/picture:
     post:
       tags: [Profile]
@@ -319,12 +346,18 @@ paths:
   /users:
     get:
       tags: [Users]
-      summary: List users (discovery)
+      summary: Search users by name (requires purpose=search)
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
+        - name: purpose
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [search]
         - name: gender
           in: query
           schema:
@@ -983,6 +1016,79 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/PaginatedPointTransactions"
+
+  /onboarding/status:
+    get:
+      tags: [Onboarding]
+      summary: Get community onboarding status
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Onboarding status with suggested circles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OnboardingStatus"
+
+  /onboarding/community:
+    post:
+      tags: [Onboarding]
+      summary: Complete community onboarding
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommunityOnboardingRequest"
+      responses:
+        "200":
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/OwnProfile"
+                          - type: object
+                            properties:
+                              points_awarded:
+                                type: integer
+                              circles_joined:
+                                type: integer
+
+  /discover/local:
+    get:
+      tags: [Discover]
+      summary: Local community discover feed
+      description: Returns local posts, active circles, and recent circle activity for the viewer's city. Requires location_opt_in.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Local discover data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DiscoverLocal"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /circles:
     get:
@@ -1651,6 +1757,97 @@ components:
             type: string
             format: uuid
           description: Hobby IDs — exposed as interests in responses
+
+    ProfileLocationUpdate:
+      type: object
+      required: [city, location_opt_in]
+      properties:
+        city:
+          type: string
+        country:
+          type: string
+        location_opt_in:
+          type: boolean
+
+    CommunityOnboardingRequest:
+      type: object
+      required: [city, suggested_circle_ids]
+      properties:
+        bio:
+          type: string
+          maxLength: 1000
+        interests:
+          type: array
+          items:
+            type: string
+          description: Hobby IDs or names
+        hobbies:
+          type: array
+          items:
+            type: string
+        humor_type:
+          type: string
+        conversation_style:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        location_opt_in:
+          type: boolean
+        suggested_circle_ids:
+          type: array
+          minItems: 2
+          items:
+            type: string
+            format: uuid
+
+    OnboardingStatus:
+      type: object
+      properties:
+        completed:
+          type: boolean
+        onboarding_completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        suggested_circles:
+          type: array
+          items:
+            $ref: "#/components/schemas/CircleListItem"
+        joined_circle_count:
+          type: integer
+
+    DiscoverLocal:
+      type: object
+      properties:
+        local_posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        active_circles:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/CircleListItem"
+              - type: object
+                properties:
+                  post_count_in_city:
+                    type: integer
+        recent_circle_activity:
+          type: array
+          items:
+            type: object
+            properties:
+              circle_id:
+                type: string
+                format: uuid
+              circle_name:
+                type: string
+              posts:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
 
     OwnProfile:
       type: object
