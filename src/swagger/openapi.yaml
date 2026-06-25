@@ -1,0 +1,2253 @@
+openapi: 3.0.3
+info:
+  title: Anchor Heart API
+  description: |
+    REST API for the Anchor Heart mobile app.
+
+    **Base URL:** `/api` (configurable via `API_PREFIX`)
+
+    
+    **Note:** Messaging requires mutual follow (connection). Profile likes (`/likes`) are legacy profile features, separate from post likes (planned).
+  version: 1.0.0
+  contact:
+    name: Anchor Heart API Support
+
+servers:
+  - url: /api
+    description: API prefix (relative to server host)
+  - url: https://app.anchorworld.org/api
+    description: Production
+
+tags:
+  - name: Health
+    description: Server health checks
+  - name: Auth
+    description: Registration, login, tokens, password reset
+  - name: Profile
+    description: Current user profile
+  - name: Users
+    description: User discovery and reporting
+  - name: Follows
+    description: Follow requests and mutual connections (matches)
+  - name: Messages
+    description: REST messaging (mutual follow required)
+  - name: Likes
+    description: Profile likes (legacy)
+  - name: Notifications
+    description: FCM tokens and in-app notification list
+  - name: Reference Data
+    description: Onboarding picklists (hobbies, goals, qualities)
+  - name: Points
+    description: Anchor Points wallet and transaction history
+  - name: Circles
+    description: Topic communities — primary discovery surface
+  - name: Posts
+    description: Community posts, feed, likes, and comments
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: HTTP health check
+      description: Public endpoint (no `/api` prefix).
+      servers:
+        - url: ""
+      responses:
+        "200":
+          description: Server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Server is running
+                  environment:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /health/socket:
+    get:
+      tags: [Health]
+      summary: Socket.IO health check
+      servers:
+        - url: ""
+      responses:
+        "200":
+          description: Socket.IO is running
+        "503":
+          description: Socket.IO not initialized
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthTokensResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthTokensResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Reset email sent if account exists
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: If email exists, reset link has been sent
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, new_password]
+              properties:
+                token:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: Password reset successful
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (invalidate refresh token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Logged out
+
+  /profile:
+    get:
+      tags: [Profile]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Profile data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OwnProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [Profile]
+      summary: Update current user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OwnProfile"
+
+  /profile/picture:
+    post:
+      tags: [Profile]
+      summary: Upload profile picture
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [profile_picture]
+              properties:
+                profile_picture:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Picture uploaded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          profile_picture:
+                            type: string
+                            example: /uploads/abc123.jpg
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List users (discovery)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: gender
+          in: query
+          schema:
+            $ref: "#/components/schemas/Gender"
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: Paginated user list with relationship status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedUserList"
+
+  /users/{userId}/posts:
+    get:
+      tags: [Posts]
+      summary: Get posts by user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated user posts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedPosts"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PublicProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Users]
+      summary: Report user (spam)
+      description: Increments the user's `report_count`. Login is blocked when count exceeds 3.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User reported
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: User reported successfully
+
+  /follows/{userId}:
+    post:
+      tags: [Follows]
+      summary: Send follow request
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "201":
+          description: Follow request sent (or auto-matched if reverse pending)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FollowRecord"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /follows/{followId}/accept:
+    put:
+      tags: [Follows]
+      summary: Accept follow request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: followId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Request accepted; mutual connection created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FollowRecord"
+
+  /follows/{followId}:
+    delete:
+      tags: [Follows]
+      summary: Remove or reject follow
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: followId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Follow removed
+
+  /follows/pending:
+    get:
+      tags: [Follows]
+      summary: Get pending follow requests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Pending requests received by current user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          requests:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/PendingFollowRequest"
+
+  /follows/matches:
+    get:
+      tags: [Follows]
+      summary: Get mutual connections (matches)
+      description: Users with mutual accepted follows. Planned rename to `/follows/connections`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of mutual connections
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          matches:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/MatchUser"
+
+  /messages/conversations:
+    get:
+      tags: [Messages]
+      summary: Get all conversations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Conversation list with last message and unread count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          conversations:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/Conversation"
+
+  /messages/unread-count:
+    get:
+      tags: [Messages]
+      summary: Get unread message count
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          description: Optional — count unread from specific user only
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          unread_count:
+                            type: integer
+
+  /messages/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Messages]
+      summary: Get chat history with a user
+      description: Requires mutual follow.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated messages
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedMessages"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Messages]
+      summary: Send message to user
+      description: Requires mutual follow.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Message"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [Messages]
+      summary: Delete conversation with user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Conversation deleted
+
+  /messages/{userId}/read-all:
+    put:
+      tags: [Messages]
+      summary: Mark all messages from user as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: All messages marked read
+
+  /messages/{messageId}/read:
+    put:
+      tags: [Messages]
+      summary: Mark single message as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Message marked read
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          is_read:
+                            type: boolean
+                          read_at:
+                            type: string
+                            format: date-time
+                          sender_id:
+                            type: string
+                            format: uuid
+
+  /likes/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [Likes]
+      summary: Like a user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: User liked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          liked_user_id:
+                            type: string
+                            format: uuid
+                          created_at:
+                            type: string
+                            format: date-time
+    delete:
+      tags: [Likes]
+      summary: Unlike a user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User unliked
+
+  /likes/my-likes:
+    get:
+      tags: [Likes]
+      summary: Who liked my profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Users who liked me
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeListResponse"
+
+  /likes/liked-by-me:
+    get:
+      tags: [Likes]
+      summary: Profiles I liked
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Users I liked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeListResponse"
+
+  /likes/{userId}/list:
+    get:
+      tags: [Likes]
+      summary: Get likes for a specific user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Like list for user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeListResponse"
+
+  /likes/{userId}/count:
+    get:
+      tags: [Likes]
+      summary: Get profile like count
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Like count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          total_likes:
+                            type: integer
+
+  /notifications/fcm-token:
+    post:
+      tags: [Notifications]
+      summary: Register FCM push token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcm_token]
+              properties:
+                fcm_token:
+                  type: string
+      responses:
+        "200":
+          description: Token saved
+    delete:
+      tags: [Notifications]
+      summary: Remove FCM token (logout)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Token removed
+
+  /notifications/toggle:
+    put:
+      tags: [Notifications]
+      summary: Enable or disable push notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        "200":
+          description: Preference updated
+
+  /notifications:
+    post:
+      tags: [Notifications]
+      summary: List notifications for current user
+      description: Returns persisted notifications from database (not a send endpoint).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/NotificationRecord"
+
+  /hobbies:
+    get:
+      tags: [Reference Data]
+      summary: List all hobbies
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Hobby picklist
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ReferenceItem"
+
+  /relationship-goals:
+    get:
+      tags: [Reference Data]
+      summary: List relationship goals
+      description: Legacy onboarding data. Deprecated for community pivot.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Relationship goals picklist
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ReferenceItem"
+
+  /partner-qualities:
+    get:
+      tags: [Reference Data]
+      summary: List partner qualities
+      description: Legacy onboarding data. Deprecated for community pivot.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Partner qualities picklist
+          headers:
+            X-Deprecated:
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ReferenceItem"
+
+  /points/balance:
+    get:
+      tags: [Points]
+      summary: Get Anchor Points balance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current wallet balance
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PointsBalance"
+
+  /points/transactions:
+    get:
+      tags: [Points]
+      summary: List point transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated transaction history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedPointTransactions"
+
+  /circles:
+    get:
+      tags: [Circles]
+      summary: List all circles
+      description: Returns all circles, featured first. Includes join status and member count for the current user.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Circle list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CircleListItem"
+
+  /circles/featured:
+    get:
+      tags: [Circles]
+      summary: Featured circles for discover/home
+      description: Returns up to 5 featured circles ordered by member count.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Featured circles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CircleListItem"
+
+  /circles/{id}:
+    get:
+      tags: [Circles]
+      summary: Get circle details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Circle detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CircleListItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /circles/{id}/join:
+    post:
+      tags: [Circles]
+      summary: Join a circle
+      description: Awards +30 Anchor Points once per user per circle.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Joined circle
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CircleJoinResult"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /circles/{id}/leave:
+    delete:
+      tags: [Circles]
+      summary: Leave a circle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Left circle
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Left circle successfully
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /circles/{id}/members:
+    get:
+      tags: [Circles]
+      summary: List circle members
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated members
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedCircleMembers"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /circles/{id}/posts:
+    get:
+      tags: [Circles, Posts]
+      summary: Posts in a circle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated circle posts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedPosts"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /posts/feed:
+    get:
+      tags: [Posts]
+      summary: Get post feed
+      description: |
+        Default filter is `circles` (posts from joined circles).
+        Filters: `circles`, `following`, `local`, `all`. Optional `circle_id` narrows to one circle.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [circles, following, local, all]
+            default: circles
+        - name: circle_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated feed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedPosts"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /posts:
+    post:
+      tags: [Posts]
+      summary: Create a post
+      description: Multipart form with `content` (required), optional `media` file, optional `circle_id`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 10
+                circle_id:
+                  type: string
+                  format: uuid
+                media:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Post created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /posts/{id}/comments:
+    get:
+      tags: [Posts]
+      summary: List post comments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated comments
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedPostComments"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Posts]
+      summary: Add a comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 3
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PostComment"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /posts/{id}/like:
+    post:
+      tags: [Posts]
+      summary: Like a post
+      description: Awards +5 points to post owner (max 50/day from likes received).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Post liked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          like_count:
+                            type: integer
+                          points_awarded_to_owner:
+                            type: integer
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Posts]
+      summary: Unlike a post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Like removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /posts/{id}:
+    get:
+      tags: [Posts]
+      summary: Get post by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Post detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Post"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Posts]
+      summary: Delete own post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Post soft-deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /comments/{id}:
+    delete:
+      tags: [Posts]
+      summary: Delete own comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Comment soft-deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token from login/register
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Forbidden:
+      description: Not allowed (e.g. not mutual follow)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Conflict:
+      description: Conflict (duplicate resource)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+    Gender:
+      type: string
+      enum: [male, female, other]
+
+    SeekingRelation:
+      type: string
+      enum: [date, bff]
+
+    FollowStatus:
+      type: string
+      enum: [pending, accepted]
+
+    RelationshipStatus:
+      type: string
+      enum: [none, request_sent, request_received, friends]
+
+    NotificationType:
+      type: string
+      enum: [new_message, friend_request, friend_accept, new_like]
+
+    RegisterRequest:
+      type: object
+      required: [email, password, full_name, date_of_birth, gender]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          description: Must contain uppercase, lowercase, and number
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        date_of_birth:
+          type: string
+          format: date
+          description: User must be 18+
+        gender:
+          $ref: "#/components/schemas/Gender"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthTokensResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserEntity"
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+
+    UserEntity:
+      type: object
+      description: Raw user record from auth (may include internal fields)
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        full_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          $ref: "#/components/schemas/Gender"
+        profile_completed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    ReferenceItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    HobbyItem:
+      allOf:
+        - $ref: "#/components/schemas/ReferenceItem"
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        bio:
+          type: string
+          maxLength: 1000
+        gender:
+          $ref: "#/components/schemas/Gender"
+        city:
+          type: string
+        country:
+          type: string
+        location_opt_in:
+          type: boolean
+        conversation_style:
+          type: string
+          description: Formerly love language in legacy app
+        humor_type:
+          type: string
+        hobbies:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Hobby IDs — exposed as interests in responses
+
+    OwnProfile:
+      type: object
+      description: Community profile shape (dating fields removed)
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+        age:
+          type: integer
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          $ref: "#/components/schemas/Gender"
+        bio:
+          type: string
+          nullable: true
+        profile_picture:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        location_opt_in:
+          type: boolean
+        interests:
+          type: array
+          items:
+            type: string
+        conversation_style:
+          type: string
+          nullable: true
+        humor_type:
+          type: string
+          nullable: true
+        post_count:
+          type: integer
+        points_balance:
+          type: integer
+        circles:
+          type: array
+          items:
+            $ref: "#/components/schemas/CircleSummary"
+        profile_completed:
+          type: boolean
+        onboarding_completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        intro_video_url:
+          type: string
+          nullable: true
+
+    PublicProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        age:
+          type: integer
+        gender:
+          $ref: "#/components/schemas/Gender"
+        bio:
+          type: string
+          nullable: true
+        profile_picture:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        location_opt_in:
+          type: boolean
+        interests:
+          type: array
+          items:
+            type: string
+        conversation_style:
+          type: string
+          nullable: true
+        humor_type:
+          type: string
+          nullable: true
+        post_count:
+          type: integer
+        points_balance:
+          type: integer
+        circles:
+          type: array
+          items:
+            $ref: "#/components/schemas/CircleSummary"
+        connection_status:
+          type: string
+          enum: [none, pending, following, connected]
+        last_seen:
+          type: string
+          format: date-time
+          nullable: true
+
+    CircleSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    PointsBalance:
+      type: object
+      properties:
+        balance:
+          type: integer
+          example: 350
+        lifetime_earned:
+          type: integer
+          example: 500
+
+    PointTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+          description: Positive = earned, negative = spent
+        type:
+          type: string
+          example: daily_login
+        reference_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    PaginatedPointTransactions:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PointTransaction"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    CircleListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Fitness & Health
+        slug:
+          type: string
+          example: fitness-health
+        description:
+          type: string
+          nullable: true
+        icon_url:
+          type: string
+          nullable: true
+        member_count:
+          type: integer
+          example: 42
+        is_featured:
+          type: boolean
+        is_joined:
+          type: boolean
+
+    CircleJoinResult:
+      type: object
+      properties:
+        circle:
+          $ref: "#/components/schemas/CircleListItem"
+        points_awarded:
+          type: integer
+          example: 30
+        points_balance:
+          type: integer
+          example: 130
+
+    CircleMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        profile_picture:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [member, admin]
+        joined_at:
+          type: string
+          format: date-time
+
+    PaginatedCircleMembers:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CircleMember"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    PostAuthor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        profile_picture:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        interests:
+          type: array
+          items:
+            type: string
+        conversation_style:
+          type: string
+          nullable: true
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: "#/components/schemas/PostAuthor"
+        content:
+          type: string
+        media_url:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+          enum: [none, image, video]
+        circle_id:
+          type: string
+          format: uuid
+          nullable: true
+        circle_name:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        like_count:
+          type: integer
+        comment_count:
+          type: integer
+        is_liked_by_me:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    PaginatedPosts:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    PostComment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        post_id:
+          type: string
+          format: uuid
+        user:
+          $ref: "#/components/schemas/PostAuthor"
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PaginatedPostComments:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostComment"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    UserListItem:
+      type: object
+      description: Community discovery list item (no dating fields)
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        age:
+          type: integer
+        gender:
+          $ref: "#/components/schemas/Gender"
+        bio:
+          type: string
+          nullable: true
+        profile_picture:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        is_online:
+          type: boolean
+        last_seen:
+          type: string
+          format: date-time
+          nullable: true
+        interests:
+          type: array
+          items:
+            type: string
+        relationship_status:
+          type: string
+          enum: [none, pending_sent, pending_received, connected]
+        follow_request_id:
+          type: string
+          format: uuid
+          description: Present when status is pending_received
+
+    PaginatedUserList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserListItem"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    FollowRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        follower_id:
+          type: string
+          format: uuid
+        following_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/FollowStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        message:
+          type: string
+          example: You are now friends!
+
+    PendingFollowRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        follower:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            full_name:
+              type: string
+            profile_picture:
+              type: string
+              nullable: true
+            bio:
+              type: string
+              nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    MatchUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        profile_picture:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        is_online:
+          type: boolean
+        last_seen:
+          type: string
+          format: date-time
+          nullable: true
+
+    SendMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          maxLength: 5000
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        receiver_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        sender:
+          type: object
+          properties:
+            full_name:
+              type: string
+            profile_picture:
+              type: string
+              nullable: true
+
+    PaginatedMessages:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    Conversation:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            full_name:
+              type: string
+            profile_picture:
+              type: string
+              nullable: true
+            is_online:
+              type: boolean
+            last_seen:
+              type: string
+              format: date-time
+              nullable: true
+        last_message:
+          type: object
+          nullable: true
+          properties:
+            content:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            is_read:
+              type: boolean
+            is_sent_by_me:
+              type: boolean
+        unread_count:
+          type: integer
+
+    LikeListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                likes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          full_name:
+                            type: string
+                          profile_picture:
+                            type: string
+                            nullable: true
+                          bio:
+                            type: string
+                            nullable: true
+                      created_at:
+                        type: string
+                        format: date-time
+                total:
+                  type: integer
+
+    NotificationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        body:
+          type: string
+        type:
+          $ref: "#/components/schemas/NotificationType"
+        created_at:
+          type: string
+          format: date-time

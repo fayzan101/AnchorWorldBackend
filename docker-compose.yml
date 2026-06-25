@@ -1,0 +1,24 @@
+# Local development — MySQL only (API runs on host via npm run dev)
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: anchor-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: anchor_root
+      MYSQL_DATABASE: anchor_db
+      MYSQL_USER: anchor_user
+      MYSQL_PASSWORD: anchor_pass
+    volumes:
+      - anchor_mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-panchor_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  anchor_mysql_data:
