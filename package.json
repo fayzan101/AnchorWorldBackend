@@ -1,20 +1,15 @@
 {
-  "name": "dating-app-backend",
+  "name": "anchor-backend",
   "version": "1.0.0",
-  "description": "Production-ready dating app backend with Node.js, TypeScript, Express, MySQL, and Socket.IO",
+  "description": "Anchor community backend — Node.js, TypeScript, Express, MySQL, Socket.IO",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f mysql",
-    "docker:build": "docker compose -f docker-compose.prod.yml build",
-    "docker:up": "docker compose -f docker-compose.prod.yml up -d",
-    "docker:down": "docker compose -f docker-compose.prod.yml down",
-    "docker:logs": "docker compose -f docker-compose.prod.yml logs -f api",
-    "docker:full:up": "docker compose -f docker-compose.full.yml up -d --build",
-    "docker:full:down": "docker compose -f docker-compose.full.yml down",
     "build": "tsc && node -e \"require('fs').cpSync('src/swagger','dist/swagger',{recursive:true})\"",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/data-source.ts",
@@ -30,7 +25,8 @@
     "seed:circles": "ts-node src/scripts/seed-circles.ts"
   },
   "keywords": [
-    "dating-app",
+    "anchor",
+    "community",
     "nodejs",
     "typescript",
     "express",

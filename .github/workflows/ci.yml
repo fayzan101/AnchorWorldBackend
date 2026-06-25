@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: anchor_root
+          MYSQL_DATABASE: anchor_db
+          MYSQL_USER: anchor_user
+          MYSQL_PASSWORD: anchor_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -panchor_root"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      NODE_ENV: test
+      RUN_INTEGRATION_TESTS: "true"
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USERNAME: anchor_user
+      DB_PASSWORD: anchor_pass
+      DB_DATABASE: anchor_db
+      JWT_ACCESS_SECRET: ci_test_access_secret
+      JWT_REFRESH_SECRET: ci_test_refresh_secret
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migrations
+        run: |
+          for i in $(seq 1 20); do
+            if npm run migrate; then
+              echo "Migrations applied"
+              exit 0
+            fi
+            echo "Waiting for MySQL before migrate... ($i/20)"
+            sleep 3
+          done
+          echo "Migrations failed after retries"
+          exit 1
+
+      - name: Integration tests
+        run: npm run test:integration
