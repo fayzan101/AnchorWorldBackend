@@ -18,6 +18,7 @@ import { Post } from "../entities/Post.entity";
 import { PostLike } from "../entities/PostLike.entity";
 import { PostComment } from "../entities/PostComment.entity";
 import { CommunityUserFields1719000000001 } from "../migrations/1719000000001-CommunityUserFields";
+import { InitialSchema1719000000000 } from "../migrations/1719000000000-InitialSchema";
 import { PointsTables1719000000002 } from "../migrations/1719000000002-PointsTables";
 import { CirclesTables1719000000003 } from "../migrations/1719000000003-CirclesTables";
 import { PostsTables1719000000004 } from "../migrations/1719000000004-PostsTables";
@@ -50,6 +51,7 @@ export const AppDataSource = new DataSource({
     PostComment,
   ],
   migrations: [
+    InitialSchema1719000000000,
     CommunityUserFields1719000000001,
     PointsTables1719000000002,
     CirclesTables1719000000003,
