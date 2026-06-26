@@ -18,6 +18,8 @@ servers:
 tags:
   - name: Health
     description: Server health checks
+  - name: Monitoring
+    description: Prometheus metrics and observability endpoints
   - name: Auth
     description: Registration, login, tokens, password reset
   - name: Profile
@@ -80,6 +82,21 @@ paths:
           description: Socket.IO is running
         "503":
           description: Socket.IO not initialized
+
+  /metrics:
+    get:
+      tags: [Monitoring]
+      summary: Prometheus metrics endpoint
+      description: Public endpoint for Prometheus scraping; no `/api` prefix.
+      servers:
+        - url: ""
+      responses:
+        "200":
+          description: Prometheus exposition format with application and default Node.js metrics
+          content:
+            text/plain:
+              schema:
+                type: string
 
   /auth/register:
     post:
