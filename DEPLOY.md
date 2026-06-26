@@ -73,6 +73,8 @@ npm run seed:circles
 pm2 restart anchor-backend
 ```
 
+For the GitHub Actions deploy workflow, `npm ci` now runs only when `package-lock.json` changes, and `seed:circles` only runs when `src/scripts/seed-circles.ts` changes. Migrations still run on every deploy.
+
 ---
 
 ## 5. Verify

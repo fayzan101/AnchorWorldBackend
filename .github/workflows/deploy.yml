@@ -33,9 +33,35 @@ jobs:
             git reset --hard origin/master
             mkdir -p uploads/posts
             chmod -R 755 uploads
-            npm ci
+
+            LOCKFILE_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
+            INSTALL_HASH_FILE=".npm-ci.lockhash"
+            if [ ! -d node_modules ] || [ ! -f "$INSTALL_HASH_FILE" ] || [ "$LOCKFILE_HASH" != "$(cat "$INSTALL_HASH_FILE")" ]; then
+              npm ci
+              printf '%s' "$LOCKFILE_HASH" > "$INSTALL_HASH_FILE"
+            fi
+
             npm run build
             npm run migrate:prod
-            npm run seed:circles
-            pm2 restart anchor-backend
-            curl -fsS http://127.0.0.1:3000/health
+
+            SEED_HASH="$(sha256sum src/scripts/seed-circles.ts | awk '{print $1}')"
+            SEED_HASH_FILE=".seed-circles.hash"
+            if [ ! -f "$SEED_HASH_FILE" ] || [ "$SEED_HASH" != "$(cat "$SEED_HASH_FILE")" ]; then
+              npm run seed:circles
+              printf '%s' "$SEED_HASH" > "$SEED_HASH_FILE"
+            fi
+
+            pm2 restart anchor-backend --update-env
+
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:3000/health >/dev/null; then
+                curl -fsS http://127.0.0.1:3000/health
+                exit 0
+              fi
+
+              sleep 2
+            done
+
+            echo "Health check failed after waiting for the app to start" >&2
+            pm2 logs anchor-backend --lines 50 --nostream
+            exit 1
