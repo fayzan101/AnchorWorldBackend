@@ -60,6 +60,26 @@ export function createApp(): Application {
     });
   });
 
+  app.get("/health/socket", (_req, res) => {
+    const socketIo = app.locals.socketIo;
+
+    if (!socketIo) {
+      res.status(503).json({
+        success: false,
+        message: "Socket.IO not initialized",
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: "Socket.IO is running",
+      active: true,
+      clientsCount: socketIo.engine.clientsCount,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   app.use(`${apiPrefix}/auth`, authRoutes);
   app.use(`${apiPrefix}/profile`, profileRoutes);
   app.use(`${apiPrefix}/users`, userRoutes);

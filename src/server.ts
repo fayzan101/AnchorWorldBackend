@@ -12,27 +12,6 @@ class Server {
   private io: SocketIOServer | undefined;
 
   constructor() {
-    this.configureSocketHealth();
-  }
-
-  private configureSocketHealth(): void {
-    this.app.get("/health/socket", (_req, res): void => {
-      if (!this.io) {
-        res.status(503).json({
-          success: false,
-          message: "Socket.IO not initialized",
-        });
-        return;
-      }
-
-      res.json({
-        success: true,
-        message: "Socket.IO is running",
-        active: true,
-        clientsCount: this.io.engine.clientsCount,
-        timestamp: new Date().toISOString(),
-      });
-    });
   }
 
   public async start(): Promise<void> {
@@ -40,6 +19,7 @@ class Server {
       await initializeDatabase();
       initializeFirebase();
       this.io = initializeSocket(this.httpServer);
+      this.app.locals.socketIo = this.io;
 
       this.httpServer.listen(config.server.port, "0.0.0.0", () => {
         console.log("═══════════════════════════════════════════════════════");

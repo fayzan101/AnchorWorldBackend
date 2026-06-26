@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: Anchor Heart API
+  title: Anchor App APIS
   description: |
-    REST API for the Anchor Heart mobile app.
+    REST API for the Anchor mobile app.
 
     **Base URL:** `/api` (configurable via `API_PREFIX`)
 
@@ -10,7 +10,7 @@ info:
     **Note:** Messaging requires mutual follow (connection). Profile likes (`/likes`) are legacy profile features, separate from post likes (planned).
   version: 1.0.0
   contact:
-    name: Anchor Heart API Support
+    name: Anchor App API Support
 
 servers:
   - url: /api
@@ -1851,7 +1851,7 @@ components:
 
     OwnProfile:
       type: object
-      description: Community profile shape (dating fields removed)
+      description: Community profile shape (unnecessary fields removed)
       properties:
         id:
           type: string
@@ -2179,7 +2179,7 @@ components:
 
     UserListItem:
       type: object
-      description: Community discovery list item (no dating fields)
+      description: Community discovery list item (no unused fields)
       properties:
         id:
           type: string
