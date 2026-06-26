@@ -5,6 +5,7 @@ import compression from "compression";
 import morgan from "morgan";
 import path from "path";
 import { config } from "./config/environment";
+import { metricsMiddleware } from "./middleware/metrics.middleware";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
 import { setupSwagger } from "./config/swagger";
 
@@ -24,6 +25,7 @@ import postRoutes from "./routes/post.routes";
 import commentRoutes from "./routes/comment.routes";
 import onboardingRoutes from "./routes/onboarding.routes";
 import discoverRoutes from "./routes/discover.routes";
+import metricsRoutes from "./routes/metrics.routes";
 
 export function createApp(): Application {
   const app = express();
@@ -45,6 +47,7 @@ export function createApp(): Application {
 
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(metricsMiddleware);
 
   app.use("/.well-known", express.static(path.join(process.cwd(), ".well-known")));
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -79,6 +82,8 @@ export function createApp(): Application {
       timestamp: new Date().toISOString(),
     });
   });
+
+  app.use("/metrics", metricsRoutes);
 
   app.use(`${apiPrefix}/auth`, authRoutes);
   app.use(`${apiPrefix}/profile`, profileRoutes);
