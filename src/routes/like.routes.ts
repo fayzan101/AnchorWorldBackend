@@ -1,12 +1,15 @@
 import { Router } from "express";
 import { LikeController } from "../controllers/like.controller";
 import { authenticateToken } from "../middleware/auth.middleware";
+import { deprecationHeader } from "../middleware/deprecation.middleware";
 
 const router = Router();
 const likeController = new LikeController();
 
-// All routes require authentication
 router.use(authenticateToken);
+router.use(
+  deprecationHeader('endpoint="/api/likes/*"; profile likes deprecated for community app')
+);
 
 /**
  * @route   POST /api/likes/:userId

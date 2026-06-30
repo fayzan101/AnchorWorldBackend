@@ -41,12 +41,15 @@ function mapInterests(user: User): string[] {
 export function mapRelationshipStatus(
   raw: string | null | undefined
 ): CommunityRelationshipStatus {
-  switch (raw) {
+    switch (raw) {
     case "friends":
+    case "connected":
       return "connected";
     case "request_sent":
+    case "pending_sent":
       return "pending_sent";
     case "request_received":
+    case "pending_received":
       return "pending_received";
     default:
       return "none";

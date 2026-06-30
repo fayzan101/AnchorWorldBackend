@@ -3,6 +3,7 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { AppError } from "../middleware/error.middleware";
 import { PaginationQuery } from "../types";
+import { isEitherBlocked } from "../utils/block.util";
 
 export class MessageService {
   private messageRepository: MessageRepository;
@@ -16,14 +17,17 @@ export class MessageService {
   }
 
   async sendMessage(senderId: string, receiverId: string, content: string) {
-    // Check if users are mutually following
+    if (await isEitherBlocked(senderId, receiverId)) {
+      throw new AppError("Cannot message this user", 403);
+    }
+
     const areMutualFollowers = await this.followRepository.checkMutualFollow(
       senderId,
       receiverId
     );
 
     if (!areMutualFollowers) {
-      throw new AppError("Can only message users you mutually follow", 403);
+      throw new AppError("Can only message users you are connected with", 403);
     }
 
     // Create message
@@ -63,7 +67,7 @@ export class MessageService {
 
     if (!areMutualFollowers) {
       throw new AppError(
-        "Can only view messages from users you mutually follow",
+        "Can only view messages from users you are connected with",
         403
       );
     }
