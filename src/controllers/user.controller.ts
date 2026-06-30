@@ -70,9 +70,11 @@ export class UserController {
 
   markReportUserById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const reporterId = req.user!.id;
       const { userId } = req.params;
-      await this.userService.markReportById(userId);
-      ResponseUtil.success(res, { message: 'User reported successfully' });
+      const reason = req.body?.reason as string | undefined;
+      const report = await this.userService.reportUser(reporterId, userId, reason);
+      ResponseUtil.success(res, report, 'User reported successfully');
     } catch (error) {
       next(error);
     }

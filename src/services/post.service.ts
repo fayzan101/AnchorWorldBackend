@@ -162,6 +162,10 @@ export class PostService {
     }
 
     const blockedUserIds = await getBlockedUserIds(viewerId);
+    if (blockedUserIds.includes(targetUserId)) {
+      throw new AppError("User not found", 404);
+    }
+
     const { items, total } = await this.postRepository.findByUser(
       targetUserId,
       page,
@@ -242,10 +246,7 @@ export class PostService {
     }
 
     const blockedUserIds = await getBlockedUserIds(userId);
-    if (
-      blockedUserIds.includes(post.user_id) ||
-      blockedUserIds.includes(userId)
-    ) {
+    if (blockedUserIds.includes(post.user_id)) {
       throw new AppError("Cannot like this post", 403);
     }
 
@@ -341,10 +342,7 @@ export class PostService {
     }
 
     const blockedUserIds = await getBlockedUserIds(userId);
-    if (
-      blockedUserIds.includes(post.user_id) ||
-      blockedUserIds.includes(userId)
-    ) {
+    if (blockedUserIds.includes(post.user_id)) {
       throw new AppError("Cannot comment on this post", 403);
     }
 

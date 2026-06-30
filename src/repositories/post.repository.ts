@@ -49,6 +49,11 @@ export class PostRepository {
     return (result.affected ?? 0) > 0;
   }
 
+  async softDeleteById(id: string): Promise<boolean> {
+    const result = await this.repo().softDelete({ id });
+    return (result.affected ?? 0) > 0;
+  }
+
   async countByUser(userId: string): Promise<number> {
     return this.repo().count({
       where: { user_id: userId },

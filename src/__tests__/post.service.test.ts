@@ -15,6 +15,11 @@ jest.mock("../config/database", () => ({
   },
 }));
 
+jest.mock("../utils/block.util", () => ({
+  getBlockedUserIds: jest.fn().mockResolvedValue([]),
+  isEitherBlocked: jest.fn().mockResolvedValue(false),
+}));
+
 describe("PostService", () => {
   const mockPostRepository = {
     findFeed: jest.fn(),

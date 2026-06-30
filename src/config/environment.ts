@@ -53,6 +53,16 @@ export const config = {
       process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
       "firebase-service-account.json",
   },
+  agora: {
+    appId: process.env.AGORA_APP_ID || "",
+    appCertificate: process.env.AGORA_APP_CERTIFICATE || "",
+  },
+  admin: {
+    userIds: (process.env.ADMIN_USER_IDS || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean),
+  },
 };
 
 export default config;

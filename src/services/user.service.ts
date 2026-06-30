@@ -17,6 +17,8 @@ import {
   toOwnProfile,
   toPublicUser,
 } from "../utils/user-response.mapper";
+import { ModerationService } from "./moderation.service";
+import { isEitherBlocked, getBlockedUserIds } from "../utils/block.util";
 
 const DEPRECATED_PROFILE_FIELDS = [
   "seeking_relation",
@@ -37,6 +39,7 @@ export class UserService {
   private circleService: CircleService;
   private postService: PostService;
   private hobbyRepository: HobbyRepository;
+  private moderationService: ModerationService;
 
   constructor(
     userRepository?: UserRepository,
@@ -44,7 +47,8 @@ export class UserService {
     pointsService?: PointsService,
     circleService?: CircleService,
     postService?: PostService,
-    hobbyRepository?: HobbyRepository
+    hobbyRepository?: HobbyRepository,
+    moderationService?: ModerationService
   ) {
     this.userRepository = userRepository ?? new UserRepository();
     this.followRepository = followRepository ?? new FollowRepository();
@@ -52,6 +56,7 @@ export class UserService {
     this.circleService = circleService ?? new CircleService();
     this.postService = postService ?? new PostService();
     this.hobbyRepository = hobbyRepository ?? new HobbyRepository();
+    this.moderationService = moderationService ?? new ModerationService();
   }
 
   async getProfile(userId: string): Promise<OwnProfile> {
@@ -175,6 +180,14 @@ export class UserService {
       throw new AppError("User not found", 404);
     }
 
+    if (
+      requestingUserId &&
+      requestingUserId !== userId &&
+      (await isEitherBlocked(requestingUserId, userId))
+    ) {
+      throw new AppError("User not found", 404);
+    }
+
     const [{ balance }, circles, postCount] = await Promise.all([
       this.pointsService.getBalance(userId),
       this.circleService.getUserCircleSummaries(userId),
@@ -195,6 +208,10 @@ export class UserService {
       circles,
       connectionStatus,
     });
+  }
+
+  async reportUser(reporterId: string, targetUserId: string, reason?: string) {
+    return this.moderationService.reportUser(reporterId, targetUserId, reason);
   }
 
   async markReportById(userId: string) {
@@ -221,7 +238,12 @@ export class UserService {
         query.search
       );
 
-    const items = users.map((user: Record<string, unknown>) =>
+    const blockedIds = new Set(await getBlockedUserIds(currentUserId));
+    const filteredUsers = users.filter(
+      (user: Record<string, unknown>) => !blockedIds.has(user.id as string)
+    );
+
+    const items = filteredUsers.map((user: Record<string, unknown>) =>
       toCommunityUserListItem(user)
     );
 
@@ -230,8 +252,10 @@ export class UserService {
       pagination: {
         page,
         limit,
-        total,
-        total_pages: Math.ceil(total / limit),
+        total: total - (users.length - filteredUsers.length),
+        total_pages: Math.ceil(
+          (total - (users.length - filteredUsers.length)) / limit
+        ),
       },
     } satisfies PaginatedResponse<(typeof items)[number]>;
   }

@@ -17,11 +17,15 @@ import { CircleMember } from "../entities/CircleMember.entity";
 import { Post } from "../entities/Post.entity";
 import { PostLike } from "../entities/PostLike.entity";
 import { PostComment } from "../entities/PostComment.entity";
+import { UserBlock } from "../entities/UserBlock.entity";
+import { ContentReport } from "../entities/ContentReport.entity";
+import { ModerationAction } from "../entities/ModerationAction.entity";
 import { CommunityUserFields1719000000001 } from "../migrations/1719000000001-CommunityUserFields";
 import { InitialSchema1719000000000 } from "../migrations/1719000000000-InitialSchema";
 import { PointsTables1719000000002 } from "../migrations/1719000000002-PointsTables";
 import { CirclesTables1719000000003 } from "../migrations/1719000000003-CirclesTables";
 import { PostsTables1719000000004 } from "../migrations/1719000000004-PostsTables";
+import { BlocksModerationTables1719000000006 } from "../migrations/1719000000006-BlocksModerationTables";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -49,6 +53,9 @@ export const AppDataSource = new DataSource({
     Post,
     PostLike,
     PostComment,
+    UserBlock,
+    ContentReport,
+    ModerationAction,
   ],
   migrations: [
     InitialSchema1719000000000,
@@ -56,6 +63,7 @@ export const AppDataSource = new DataSource({
     PointsTables1719000000002,
     CirclesTables1719000000003,
     PostsTables1719000000004,
+    BlocksModerationTables1719000000006,
   ],
   subscribers: [],
   charset: "utf8mb4",

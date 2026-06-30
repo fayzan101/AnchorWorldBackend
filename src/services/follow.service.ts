@@ -2,6 +2,7 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { AppError } from "../middleware/error.middleware";
 import { NotificationService } from "./notification.service";
+import { isEitherBlocked } from "../utils/block.util";
 
 export class FollowService {
   private followRepository: FollowRepository;
@@ -18,6 +19,10 @@ export class FollowService {
     // Check if trying to follow self
     if (followerId === followingId) {
       throw new AppError("Cannot follow yourself", 400);
+    }
+
+    if (await isEitherBlocked(followerId, followingId)) {
+      throw new AppError("Cannot connect with this user", 403);
     }
 
     // Check if user exists
@@ -102,6 +107,10 @@ export class FollowService {
     // Check if already accepted
     if (follow.status === "accepted") {
       throw new AppError("Request already accepted", 400);
+    }
+
+    if (await isEitherBlocked(userId, follow.follower_id)) {
+      throw new AppError("Cannot connect with this user", 403);
     }
 
     // Get accepter info for notification

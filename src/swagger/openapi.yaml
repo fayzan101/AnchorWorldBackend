@@ -42,6 +42,10 @@ tags:
     description: Topic communities — primary discovery surface
   - name: Posts
     description: Community posts, feed, likes, and comments
+  - name: Blocks
+    description: User blocking for safety
+  - name: Admin
+    description: Content moderation (admin only)
 
 paths:
   /health:
@@ -393,6 +397,54 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/PaginatedUserList"
+
+  /users/blocked:
+    get:
+      tags: [Blocks]
+      summary: List users you have blocked
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated blocked users
+
+  /users/{id}/block:
+    post:
+      tags: [Blocks]
+      summary: Block a user
+      description: Removes mutual follows and hides the user across feed, chat, and search.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: User blocked
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Blocks]
+      summary: Unblock a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User unblocked
 
   /users/{userId}/posts:
     get:
@@ -1500,6 +1552,32 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /posts/{id}/report:
+    post:
+      tags: [Posts]
+      summary: Report a post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "201":
+          description: Report submitted
+
   /posts/{id}:
     get:
       tags: [Posts]
@@ -1563,6 +1641,87 @@ paths:
           description: Comment soft-deleted
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /comments/{id}/report:
+    post:
+      tags: [Posts]
+      summary: Report a comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "201":
+          description: Report submitted
+
+  /admin/reports:
+    get:
+      tags: [Admin]
+      summary: List content reports
+      description: Requires admin user ID in `ADMIN_USER_IDS`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, dismissed, actioned]
+            default: open
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated reports
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/reports/{id}/action:
+    post:
+      tags: [Admin]
+      summary: Take moderation action on a report
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [hide_content, dismiss, warn_user]
+                notes:
+                  type: string
+                  maxLength: 2000
+      responses:
+        "200":
+          description: Action recorded
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
 components:
   securitySchemes:

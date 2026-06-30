@@ -44,4 +44,9 @@ export class PostCommentRepository {
     const result = await this.repo().softDelete({ id, user_id: userId });
     return (result.affected ?? 0) > 0;
   }
+
+  async softDeleteById(id: string): Promise<boolean> {
+    const result = await this.repo().softDelete({ id });
+    return (result.affected ?? 0) > 0;
+  }
 }

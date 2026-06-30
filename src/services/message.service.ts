@@ -3,6 +3,7 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { AppError } from "../middleware/error.middleware";
 import { PaginationQuery } from "../types";
+import { isEitherBlocked } from "../utils/block.util";
 
 export class MessageService {
   private messageRepository: MessageRepository;
@@ -16,7 +17,10 @@ export class MessageService {
   }
 
   async sendMessage(senderId: string, receiverId: string, content: string) {
-    // Check if users are mutually following
+    if (await isEitherBlocked(senderId, receiverId)) {
+      throw new AppError("Cannot message this user", 403);
+    }
+
     const areMutualFollowers = await this.followRepository.checkMutualFollow(
       senderId,
       receiverId

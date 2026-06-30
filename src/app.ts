@@ -25,6 +25,8 @@ import postRoutes from "./routes/post.routes";
 import commentRoutes from "./routes/comment.routes";
 import onboardingRoutes from "./routes/onboarding.routes";
 import discoverRoutes from "./routes/discover.routes";
+import blockRoutes from "./routes/block.routes";
+import adminRoutes from "./routes/admin.routes";
 import metricsRoutes from "./routes/metrics.routes";
 
 export function createApp(): Application {
@@ -86,6 +88,7 @@ export function createApp(): Application {
   app.use("/metrics", metricsRoutes);
 
   app.use(`${apiPrefix}/auth`, authRoutes);
+  app.use(`${apiPrefix}`, blockRoutes);
   app.use(`${apiPrefix}/profile`, profileRoutes);
   app.use(`${apiPrefix}/users`, userRoutes);
   app.use(`${apiPrefix}/follows`, followRoutes);
@@ -101,6 +104,7 @@ export function createApp(): Application {
   app.use(`${apiPrefix}/comments`, commentRoutes);
   app.use(`${apiPrefix}/onboarding`, onboardingRoutes);
   app.use(`${apiPrefix}/discover`, discoverRoutes);
+  app.use(`${apiPrefix}/admin`, adminRoutes);
 
   setupSwagger(app);
   app.use(notFoundHandler);
