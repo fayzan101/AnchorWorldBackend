@@ -7,7 +7,7 @@ const router = Router();
 const partnerQualityController = new PartnerQualityController();
 
 router.use(authenticateToken);
-router.use(deprecationHeader);
+router.use(deprecationHeader());
 
 /**
  * @route   GET /api/partner-qualities

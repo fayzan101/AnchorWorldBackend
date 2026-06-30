@@ -7,7 +7,7 @@ const router = Router();
 const relationShipGoalController = new RelationShipGoalController();
 
 router.use(authenticateToken);
-router.use(deprecationHeader);
+router.use(deprecationHeader());
 
 /**
  * @route   GET /api/relationship-goals

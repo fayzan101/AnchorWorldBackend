@@ -3,6 +3,11 @@ import { UserPoints } from "../entities/UserPoints.entity";
 import { PointTransaction } from "../entities/PointTransaction.entity";
 import { EntityManager } from "typeorm";
 
+function isDuplicateEntry(error: unknown): boolean {
+  const err = error as { code?: string; errno?: number };
+  return err.code === "ER_DUP_ENTRY" || err.errno === 1062;
+}
+
 export class PointsRepository {
   private walletRepo = () => AppDataSource.getRepository(UserPoints);
   private txRepo = () => AppDataSource.getRepository(PointTransaction);
@@ -14,12 +19,24 @@ export class PointsRepository {
 
   async getOrCreateWallet(userId: string, manager?: EntityManager): Promise<UserPoints> {
     const repo = manager ? manager.getRepository(UserPoints) : this.walletRepo();
-    let wallet = await repo.findOne({ where: { user_id: userId } });
-    if (!wallet) {
-      wallet = repo.create({ user_id: userId, balance: 0, lifetime_earned: 0 });
-      wallet = await repo.save(wallet);
+    const existing = await repo.findOne({ where: { user_id: userId } });
+    if (existing) {
+      return existing;
     }
-    return wallet;
+
+    try {
+      const wallet = repo.create({ user_id: userId, balance: 0, lifetime_earned: 0 });
+      return await repo.save(wallet);
+    } catch (error) {
+      if (!isDuplicateEntry(error)) {
+        throw error;
+      }
+      const wallet = await repo.findOne({ where: { user_id: userId } });
+      if (!wallet) {
+        throw error;
+      }
+      return wallet;
+    }
   }
 
   async getWalletForUpdate(userId: string, manager: EntityManager): Promise<UserPoints> {
@@ -30,17 +47,30 @@ export class PointsRepository {
       .where("wallet.user_id = :userId", { userId })
       .getOne();
 
-    if (!wallet) {
-      wallet = repo.create({ user_id: userId, balance: 0, lifetime_earned: 0 });
-      wallet = await repo.save(wallet);
-      wallet = await repo
-        .createQueryBuilder("wallet")
-        .setLock("pessimistic_write")
-        .where("wallet.user_id = :userId", { userId })
-        .getOne();
+    if (wallet) {
+      return wallet;
     }
 
-    return wallet!;
+    try {
+      const created = repo.create({ user_id: userId, balance: 0, lifetime_earned: 0 });
+      await repo.save(created);
+    } catch (error) {
+      if (!isDuplicateEntry(error)) {
+        throw error;
+      }
+    }
+
+    wallet = await repo
+      .createQueryBuilder("wallet")
+      .setLock("pessimistic_write")
+      .where("wallet.user_id = :userId", { userId })
+      .getOne();
+
+    if (!wallet) {
+      throw new Error(`Failed to get or create wallet for user ${userId}`);
+    }
+
+    return wallet;
   }
 
   async saveWallet(wallet: UserPoints, manager?: EntityManager): Promise<UserPoints> {

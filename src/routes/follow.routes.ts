@@ -1,33 +1,12 @@
 import { Router } from 'express';
 import { FollowController } from '../controllers/follow.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { deprecationHeader } from '../middleware/deprecation.middleware';
 
 const router = Router();
 const followController = new FollowController();
 
-// All routes require authentication
 router.use(authenticateToken);
-
-/**
- * @route   POST /api/follows/:userId
- * @desc    Send follow request to user
- * @access  Private
- */
-router.post('/:userId', followController.sendFollowRequest);
-
-/**
- * @route   PUT /api/follows/:followId/accept
- * @desc    Accept follow request
- * @access  Private
- */
-router.put('/:followId/accept', followController.acceptFollowRequest);
-
-/**
- * @route   DELETE /api/follows/:followId
- * @desc    Remove/reject follow
- * @access  Private
- */
-router.delete('/:followId', followController.removeFollow);
 
 /**
  * @route   GET /api/follows/pending
@@ -37,10 +16,32 @@ router.delete('/:followId', followController.removeFollow);
 router.get('/pending', followController.getPendingRequests);
 
 /**
- * @route   GET /api/follows/matches
- * @desc    Get mutual follows (matches)
+ * @route   GET /api/follows/connections
+ * @desc    Get mutual connections
  * @access  Private
  */
-router.get('/matches', followController.getMatches);
+router.get('/connections', followController.getConnections);
+
+/**
+ * @route   GET /api/follows/matches
+ * @desc    Get mutual connections (deprecated alias)
+ * @access  Private
+ */
+router.get(
+  '/matches',
+  deprecationHeader('endpoint="/api/follows/matches"; use="/api/follows/connections"'),
+  followController.getMatches
+);
+
+/**
+ * @route   POST /api/follows/:userId
+ * @desc    Send follow request to user
+ * @access  Private
+ */
+router.post('/:userId', followController.sendFollowRequest);
+
+router.post('/:userId', followController.sendFollowRequest);
+router.put('/:followId/accept', followController.acceptFollowRequest);
+router.delete('/:followId', followController.removeFollow);
 
 export default router;

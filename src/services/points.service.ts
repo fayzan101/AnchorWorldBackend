@@ -2,6 +2,12 @@ import { AppDataSource } from "../config/database";
 import { PointsRepository } from "../repositories/points.repository";
 import { AppError } from "../middleware/error.middleware";
 import { PointTransaction } from "../entities/PointTransaction.entity";
+import { EntityManager } from "typeorm";
+
+function isDeadlock(error: unknown): boolean {
+  const err = error as { code?: string; errno?: number };
+  return err.code === "ER_LOCK_DEADLOCK" || err.errno === 1213;
+}
 
 export interface AwardPointsResult {
   balance: number;
@@ -53,7 +59,7 @@ export class PointsService {
       throw new AppError("Award amount must be positive", 400);
     }
 
-    return AppDataSource.transaction(async (manager) => {
+    return this.runPointsTransaction(async (manager) => {
       const wallet = await this.pointsRepository.getWalletForUpdate(userId, manager);
       wallet.balance += amount;
       wallet.lifetime_earned += amount;
@@ -165,7 +171,7 @@ export class PointsService {
       throw new AppError("Spend amount must be positive", 400);
     }
 
-    return AppDataSource.transaction(async (manager) => {
+    return this.runPointsTransaction(async (manager) => {
       const wallet = await this.pointsRepository.getWalletForUpdate(userId, manager);
 
       if (wallet.balance < amount) {
@@ -187,6 +193,25 @@ export class PointsService {
 
       return { balance: wallet.balance, spent: amount };
     });
+  }
+
+  private async runPointsTransaction<T>(
+    operation: (manager: EntityManager) => Promise<T>,
+    maxAttempts = 3
+  ): Promise<T> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await AppDataSource.transaction(operation);
+      } catch (error) {
+        if (isDeadlock(error) && attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new Error("Failed to complete points transaction");
   }
 
   async getDailyEarned(userId: string, type: string): Promise<number> {

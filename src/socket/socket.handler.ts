@@ -36,7 +36,7 @@ export class SocketHandler {
     // Update user's online status
     this.userService.updateOnlineStatus(userId, true).catch(console.error);
 
-    // Notify user's matches that they're online
+    // Notify user's connections that they're online
     this.broadcastOnlineStatus(userId, true);
 
     // Set up event handlers
@@ -159,13 +159,13 @@ export class SocketHandler {
       // Update user's online status
       await this.userService.updateOnlineStatus(userId, false);
 
-      // Notify user's matches that they're offline
+      // Notify user's connections that they're offline
       this.broadcastOnlineStatus(userId, false);
     });
   }
 
   private broadcastOnlineStatus(userId: string, isOnline: boolean): void {
-    // In a production app, you'd fetch the user's matches and notify them
+    // In a production app, fetch the user's connections and notify them
     // For now, we'll broadcast to all connected users
     this.io.emit("user_status_changed", {
       user_id: userId,

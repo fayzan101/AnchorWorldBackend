@@ -27,7 +27,7 @@ export class MessageService {
     );
 
     if (!areMutualFollowers) {
-      throw new AppError("Can only message users you mutually follow", 403);
+      throw new AppError("Can only message users you are connected with", 403);
     }
 
     // Create message
@@ -67,7 +67,7 @@ export class MessageService {
 
     if (!areMutualFollowers) {
       throw new AppError(
-        "Can only view messages from users you mutually follow",
+        "Can only view messages from users you are connected with",
         403
       );
     }

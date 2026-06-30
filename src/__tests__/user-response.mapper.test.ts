@@ -57,6 +57,9 @@ function buildUser(overrides: Partial<User> = {}): User {
 describe("user-response.mapper", () => {
   it("maps relationship status friends to connected", () => {
     expect(mapRelationshipStatus("friends")).toBe("connected");
+    expect(mapRelationshipStatus("connected")).toBe("connected");
+    expect(mapRelationshipStatus("pending_sent")).toBe("pending_sent");
+    expect(mapRelationshipStatus("pending_received")).toBe("pending_received");
   });
 
   it("strips dating fields from public profile", () => {
