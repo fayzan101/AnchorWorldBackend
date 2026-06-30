@@ -3,6 +3,7 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { PointsService } from "./points.service";
 import { AgoraService } from "./agora.service";
+import { NotificationService } from "./notification.service";
 import { AppError } from "../middleware/error.middleware";
 import { VideoCall, VideoCallStatus } from "../entities/VideoCall.entity";
 import { PointAmounts, PointTypes } from "../constants/point-types";
@@ -29,6 +30,7 @@ export class VideoCallService {
   private userRepository: UserRepository;
   private pointsService: PointsService;
   private agoraService: AgoraService;
+  private notificationService: NotificationService;
   private expiryTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
@@ -36,13 +38,15 @@ export class VideoCallService {
     followRepository?: FollowRepository,
     userRepository?: UserRepository,
     pointsService?: PointsService,
-    agoraService?: AgoraService
+    agoraService?: AgoraService,
+    notificationService?: NotificationService
   ) {
     this.videoCallRepository = videoCallRepository ?? new VideoCallRepository();
     this.followRepository = followRepository ?? new FollowRepository();
     this.userRepository = userRepository ?? new UserRepository();
     this.pointsService = pointsService ?? new PointsService();
     this.agoraService = agoraService ?? new AgoraService();
+    this.notificationService = notificationService ?? new NotificationService();
   }
 
   async requestIntro(
@@ -112,6 +116,16 @@ export class VideoCallService {
 
     this.scheduleExpiry(call.id, PENDING_TTL_MS);
 
+    const caller = await this.userRepository.findById(callerId);
+    this.notificationService
+      .notifyVideoIntroRequest(
+        calleeId,
+        callerId,
+        caller?.full_name ?? "Someone",
+        call.id
+      )
+      .catch(console.error);
+
     const saved = await this.videoCallRepository.findById(call.id);
     return this.formatCall(saved!);
   }
@@ -126,7 +140,12 @@ export class VideoCallService {
       { started_at: new Date() }
     );
 
-    return this.formatCall(updated!);
+    const call = updated!;
+    this.notificationService
+      .notifyVideoCallAccepted(call.caller_id, callId)
+      .catch(console.error);
+
+    return this.formatCall(call);
   }
 
   async rejectIntro(callId: string, userId: string): Promise<VideoCallResponse> {
@@ -139,6 +158,10 @@ export class VideoCallService {
       VideoCallStatus.REJECTED,
       { ended_at: new Date() }
     );
+
+    this.notificationService
+      .notifyVideoCallRejected(call.caller_id, callId)
+      .catch(console.error);
 
     return this.formatCall(updated!);
   }

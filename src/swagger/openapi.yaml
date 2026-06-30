@@ -1876,7 +1876,19 @@ components:
 
     NotificationType:
       type: string
-      enum: [new_message, friend_request, friend_accept, new_like]
+      enum:
+        - new_message
+        - friend_request
+        - friend_accept
+        - new_like
+        - post_liked
+        - post_commented
+        - points_earned
+        - video_call_request
+        - video_call_accepted
+        - video_call_rejected
+        - connection_made
+        - circle_join
 
     RegisterRequest:
       type: object
@@ -2755,6 +2767,12 @@ components:
           type: string
         type:
           $ref: "#/components/schemas/NotificationType"
+        data:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Deep-link payload for the client (postId, callId, screen, etc.)
         created_at:
           type: string
           format: date-time

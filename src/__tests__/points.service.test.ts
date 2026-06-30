@@ -1,7 +1,13 @@
 import { PointsService } from "../services/points.service";
+import { NotificationService } from "../services/notification.service";
 import { PointsRepository } from "../repositories/points.repository";
 import { UserPoints } from "../entities/UserPoints.entity";
 import { AppError } from "../middleware/error.middleware";
+import { emitPointsUpdated } from "../services/socket-event.service";
+
+jest.mock("../services/socket-event.service", () => ({
+  emitPointsUpdated: jest.fn(),
+}));
 
 jest.mock("../config/database", () => ({
   AppDataSource: {
@@ -14,9 +20,12 @@ jest.mock("../config/database", () => ({
 describe("PointsService", () => {
   const userId = "user-123";
   let pointsRepository: jest.Mocked<PointsRepository>;
+  let notificationService: jest.Mocked<NotificationService>;
   let service: PointsService;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     pointsRepository = {
       getOrCreateWallet: jest.fn(),
       getWalletForUpdate: jest.fn(),
@@ -29,7 +38,11 @@ describe("PointsService", () => {
       findWallet: jest.fn(),
     } as unknown as jest.Mocked<PointsRepository>;
 
-    service = new PointsService(pointsRepository);
+    notificationService = {
+      notifyPointsMilestone: jest.fn().mockResolvedValue(true),
+    } as unknown as jest.Mocked<NotificationService>;
+
+    service = new PointsService(pointsRepository, notificationService);
   });
 
   it("returns zero balance for new wallet", async () => {
@@ -88,5 +101,24 @@ describe("PointsService", () => {
 
     expect(result.skipped).toBe(true);
     expect(pointsRepository.getWalletForUpdate).not.toHaveBeenCalled();
+  });
+
+  it("emits points_updated and milestone notification when crossing 500", async () => {
+    pointsRepository.getWalletForUpdate.mockResolvedValue({
+      user_id: userId,
+      balance: 490,
+      lifetime_earned: 490,
+    } as UserPoints);
+    pointsRepository.saveWallet.mockResolvedValue({} as UserPoints);
+    pointsRepository.createTransaction.mockResolvedValue({} as never);
+
+    const result = await service.awardPoints(userId, 20, "post_created");
+
+    expect(result.balance).toBe(510);
+    expect(emitPointsUpdated).toHaveBeenCalledWith(userId, { balance: 510 });
+    expect(notificationService.notifyPointsMilestone).toHaveBeenCalledWith(
+      userId,
+      510
+    );
   });
 });

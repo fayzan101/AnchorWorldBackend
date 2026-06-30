@@ -3,6 +3,9 @@ import { PointsRepository } from "../repositories/points.repository";
 import { AppError } from "../middleware/error.middleware";
 import { PointTransaction } from "../entities/PointTransaction.entity";
 import { EntityManager } from "typeorm";
+import { NotificationService } from "./notification.service";
+import { emitPointsUpdated } from "./socket-event.service";
+import { POINTS_MILESTONE_BALANCE } from "../constants/notification-types";
 
 function isDeadlock(error: unknown): boolean {
   const err = error as { code?: string; errno?: number };
@@ -17,9 +20,14 @@ export interface AwardPointsResult {
 
 export class PointsService {
   private pointsRepository: PointsRepository;
+  private notificationService: NotificationService;
 
-  constructor(pointsRepository?: PointsRepository) {
+  constructor(
+    pointsRepository?: PointsRepository,
+    notificationService?: NotificationService
+  ) {
     this.pointsRepository = pointsRepository ?? new PointsRepository();
+    this.notificationService = notificationService ?? new NotificationService();
   }
 
   async getBalance(userId: string): Promise<{ balance: number; lifetime_earned: number }> {
@@ -61,6 +69,7 @@ export class PointsService {
 
     return this.runPointsTransaction(async (manager) => {
       const wallet = await this.pointsRepository.getWalletForUpdate(userId, manager);
+      const previousBalance = wallet.balance;
       wallet.balance += amount;
       wallet.lifetime_earned += amount;
       await this.pointsRepository.saveWallet(wallet, manager);
@@ -74,6 +83,8 @@ export class PointsService {
         },
         manager
       );
+
+      this.afterPointsAwarded(userId, previousBalance, wallet.balance);
 
       return { balance: wallet.balance, awarded: amount };
     });
@@ -193,6 +204,23 @@ export class PointsService {
 
       return { balance: wallet.balance, spent: amount };
     });
+  }
+
+  private afterPointsAwarded(
+    userId: string,
+    previousBalance: number,
+    newBalance: number
+  ): void {
+    emitPointsUpdated(userId, { balance: newBalance });
+
+    if (
+      previousBalance < POINTS_MILESTONE_BALANCE &&
+      newBalance >= POINTS_MILESTONE_BALANCE
+    ) {
+      this.notificationService
+        .notifyPointsMilestone(userId, newBalance)
+        .catch(console.error);
+    }
   }
 
   private async runPointsTransaction<T>(

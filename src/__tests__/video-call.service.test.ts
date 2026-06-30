@@ -4,6 +4,7 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { PointsService } from "../services/points.service";
 import { AgoraService } from "../services/agora.service";
+import { NotificationService } from "../services/notification.service";
 import { AppError } from "../middleware/error.middleware";
 import { VideoCall, VideoCallStatus } from "../entities/VideoCall.entity";
 import { User } from "../entities/User.entity";
@@ -25,6 +26,7 @@ describe("VideoCallService", () => {
   let userRepository: jest.Mocked<UserRepository>;
   let pointsService: jest.Mocked<PointsService>;
   let agoraService: jest.Mocked<AgoraService>;
+  let notificationService: jest.Mocked<NotificationService>;
   let service: VideoCallService;
 
   const mockCall = (overrides: Partial<VideoCall> = {}) =>
@@ -71,17 +73,26 @@ describe("VideoCallService", () => {
       generateRtcToken: jest.fn(),
     } as unknown as jest.Mocked<AgoraService>;
 
+    notificationService = {
+      notifyVideoIntroRequest: jest.fn().mockResolvedValue(true),
+      notifyVideoCallAccepted: jest.fn().mockResolvedValue(true),
+      notifyVideoCallRejected: jest.fn().mockResolvedValue(true),
+    } as unknown as jest.Mocked<NotificationService>;
+
     service = new VideoCallService(
       videoCallRepository,
       followRepository,
       userRepository,
       pointsService,
-      agoraService
+      agoraService,
+      notificationService
     );
   });
 
   it("requests intro and spends points", async () => {
-    userRepository.findById.mockResolvedValue({ id: calleeId } as User);
+    userRepository.findById
+      .mockResolvedValueOnce({ id: calleeId } as User)
+      .mockResolvedValueOnce({ id: callerId, full_name: "Caller" } as User);
     followRepository.checkMutualFollow.mockResolvedValue(true);
     videoCallRepository.countRequestsToday.mockResolvedValue(0);
     videoCallRepository.create.mockResolvedValue(mockCall());
@@ -99,6 +110,12 @@ describe("VideoCallService", () => {
       PointTypes.VIDEO_INTRO_SPENT,
       "call-uuid-123",
       "Video intro request (5 min)"
+    );
+    expect(notificationService.notifyVideoIntroRequest).toHaveBeenCalledWith(
+      calleeId,
+      callerId,
+      "Caller",
+      "call-uuid-123"
     );
   });
 
@@ -129,6 +146,10 @@ describe("VideoCallService", () => {
       PointTypes.VIDEO_INTRO_REFUND,
       "call-uuid-123",
       "Video intro refunded"
+    );
+    expect(notificationService.notifyVideoCallRejected).toHaveBeenCalledWith(
+      callerId,
+      "call-uuid-123"
     );
   });
 

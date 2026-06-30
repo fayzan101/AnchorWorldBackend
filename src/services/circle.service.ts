@@ -2,6 +2,7 @@ import { AppDataSource } from "../config/database";
 import { CircleRepository } from "../repositories/circle.repository";
 import { PointsService } from "./points.service";
 import { PostService } from "./post.service";
+import { NotificationService } from "./notification.service";
 import { AppError } from "../middleware/error.middleware";
 import { Circle } from "../entities/Circle.entity";
 import {
@@ -15,15 +16,18 @@ export class CircleService {
   private circleRepository: CircleRepository;
   private pointsService: PointsService;
   private postService: PostService;
+  private notificationService: NotificationService;
 
   constructor(
     circleRepository?: CircleRepository,
     pointsService?: PointsService,
-    postService?: PostService
+    postService?: PostService,
+    notificationService?: NotificationService
   ) {
     this.circleRepository = circleRepository ?? new CircleRepository();
     this.pointsService = pointsService ?? new PointsService();
     this.postService = postService ?? new PostService();
+    this.notificationService = notificationService ?? new NotificationService();
   }
 
   async listCircles(userId: string): Promise<CircleListItem[]> {
@@ -89,6 +93,10 @@ export class CircleService {
     );
 
     const updatedCircle = await this.circleRepository.findById(circleId);
+
+    this.notificationService
+      .notifyCircleJoin(userId, circle.name, circleId)
+      .catch(console.error);
 
     return {
       circle: this.toListItem(updatedCircle!, true),

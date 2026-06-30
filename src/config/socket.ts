@@ -4,6 +4,7 @@ import { config } from './environment';
 import { SocketHandler } from '../socket/socket.handler';
 import { authenticateSocket } from '../middleware/socket.middleware';
 import { setSocketConnectedClients } from './metrics';
+import { setSocketServer } from '../services/socket-event.service';
 
 export const initializeSocket = (httpServer: HTTPServer): Server => {
   const socketOptions: Partial<ServerOptions> = {
@@ -17,6 +18,7 @@ export const initializeSocket = (httpServer: HTTPServer): Server => {
   };
 
   const io = new Server(httpServer, socketOptions);
+  setSocketServer(io);
   setSocketConnectedClients(io.engine.clientsCount);
 
   // Apply authentication middleware
