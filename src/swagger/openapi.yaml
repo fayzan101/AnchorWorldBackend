@@ -42,6 +42,8 @@ tags:
     description: Topic communities — primary discovery surface
   - name: Posts
     description: Community posts, feed, likes, and comments
+  - name: Video Calls
+    description: Guided video intros (Agora RTC) — points spend flow
 
 paths:
   /health:
@@ -1103,6 +1105,171 @@ paths:
                         $ref: "#/components/schemas/DiscoverLocal"
         "400":
           $ref: "#/components/responses/BadRequest"
+
+  /video-calls/request:
+    post:
+      tags: [Video Calls]
+      summary: Request a guided video intro
+      description: |
+        Spends **500** points (5 min) or **800** points (10 min). Requires mutual connection.
+        Max **2 requests per day**. Pending requests expire after 60 seconds.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VideoCallRequest"
+      responses:
+        "201":
+          description: Video intro request created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/VideoCall"
+        "402":
+          description: Insufficient Anchor Points
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          description: Daily request limit reached
+
+  /video-calls/history:
+    get:
+      tags: [Video Calls]
+      summary: Video intro history
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated past video intros
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaginatedVideoCalls"
+
+  /video-calls/{id}/token:
+    get:
+      tags: [Video Calls]
+      summary: Get Agora RTC token
+      description: Returns token for caller or callee when call is pending or active.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Agora token payload
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/VideoCallToken"
+        "503":
+          description: Agora not configured
+
+  /video-calls/{id}/accept:
+    post:
+      tags: [Video Calls]
+      summary: Accept video intro (callee)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Call accepted and active
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/VideoCall"
+
+  /video-calls/{id}/reject:
+    post:
+      tags: [Video Calls]
+      summary: Reject video intro (callee)
+      description: Refunds points to caller.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Call rejected and caller refunded
+
+  /video-calls/{id}/cancel:
+    post:
+      tags: [Video Calls]
+      summary: Cancel video intro (caller)
+      description: Refunds points before callee answers.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Call cancelled and refunded
+
+  /video-calls/{id}/end:
+    post:
+      tags: [Video Calls]
+      summary: End active video intro
+      description: Marks call completed. Awards **+100** points to both users if duration exceeds 30 seconds.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Call ended
 
   /circles:
     get:
@@ -2446,6 +2613,84 @@ components:
                         format: date-time
                 total:
                   type: integer
+
+    VideoCallRequest:
+      type: object
+      required: [callee_id, duration_minutes]
+      properties:
+        callee_id:
+          type: string
+          format: uuid
+        duration_minutes:
+          type: integer
+          enum: [5, 10]
+
+    VideoCallStatus:
+      type: string
+      enum: [pending, active, completed, rejected, cancelled, missed]
+
+    VideoCall:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        caller_id:
+          type: string
+          format: uuid
+        callee_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/VideoCallStatus"
+        duration_minutes:
+          type: integer
+        points_spent:
+          type: integer
+        channel_name:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    VideoCallToken:
+      type: object
+      properties:
+        call_id:
+          type: string
+          format: uuid
+        channel_name:
+          type: string
+        token:
+          type: string
+        uid:
+          type: integer
+        app_id:
+          type: string
+        expires_at:
+          type: integer
+          description: Unix timestamp when token expires
+
+    PaginatedVideoCalls:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VideoCall"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
 
     NotificationRecord:
       type: object

@@ -6,8 +6,8 @@ import { AuthRequest } from '../types';
 export class FollowController {
   private followService: FollowService;
 
-  constructor() {
-    this.followService = new FollowService();
+  constructor(followService?: FollowService) {
+    this.followService = followService ?? new FollowService();
   }
 
   sendFollowRequest = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -56,11 +56,21 @@ export class FollowController {
     }
   };
 
+  getConnections = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const connections = await this.followService.getConnections(userId);
+      ResponseUtil.success(res, { connections });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getMatches = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
-      const matches = await this.followService.getMatches(userId);
-      ResponseUtil.success(res, { matches });
+      const connections = await this.followService.getConnections(userId);
+      ResponseUtil.success(res, { matches: connections });
     } catch (error) {
       next(error);
     }
