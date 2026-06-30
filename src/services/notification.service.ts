@@ -2,34 +2,50 @@ import { getMessaging } from "../config/firebase";
 import { Notification } from "../entities/Notification.entity";
 import { NotificationRepository } from "../repositories/notification.repository";
 import { UserRepository } from "../repositories/user.repository";
+import {
+  NotificationType,
+  POINTS_MILESTONE_BALANCE,
+} from "../constants/notification-types";
+import {
+  emitPostCommented,
+  emitPostLiked,
+  emitVideoCallAccepted,
+  emitVideoCallRequest,
+} from "./socket-event.service";
 import admin from "firebase-admin";
 
-export enum NotificationType {
-  NEW_MESSAGE = "new_message",
-  FRIEND_REQUEST = "friend_request",
-  FRIEND_ACCEPT = "friend_accept",
-  NEW_LIKE = "new_like",
-}
+export { NotificationType } from "../constants/notification-types";
 
 interface NotificationPayload {
   title: string;
   body: string;
   type: NotificationType;
   data?: Record<string, string>;
+  highPriority?: boolean;
+}
+
+export interface NotificationListItem {
+  id: string;
+  title: string;
+  body: string;
+  type: NotificationType;
+  data: Record<string, string> | null;
+  created_at: Date;
 }
 
 export class NotificationService {
   private userRepository: UserRepository;
   private notificationRepository: NotificationRepository;
 
-  constructor() {
-    this.userRepository = new UserRepository();
-    this.notificationRepository = new NotificationRepository();
+  constructor(
+    userRepository?: UserRepository,
+    notificationRepository?: NotificationRepository
+  ) {
+    this.userRepository = userRepository ?? new UserRepository();
+    this.notificationRepository =
+      notificationRepository ?? new NotificationRepository();
   }
 
-  /**
-   * Send push notification to a single user
-   */
   async sendToUser(
     userId: string,
     payload: NotificationPayload
@@ -41,7 +57,6 @@ export class NotificationService {
         return false;
       }
 
-      // Get user's FCM token
       const user = await this.userRepository.findById(userId);
       if (!user || !user.fcm_token || !user.notifications_enabled) {
         console.log(
@@ -61,13 +76,16 @@ export class NotificationService {
           ...payload.data,
         },
         android: {
-          priority: "high",
+          priority: payload.highPriority ? "high" : "high",
           notification: {
             sound: "default",
             clickAction: "FLUTTER_NOTIFICATION_CLICK",
           },
         },
         apns: {
+          headers: payload.highPriority
+            ? { "apns-priority": "10" }
+            : undefined,
           payload: {
             aps: {
               sound: "default",
@@ -80,13 +98,13 @@ export class NotificationService {
       const response = await messaging.send(message);
       console.log("✅ Notification sent successfully:", response);
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { code?: string };
       console.error("❌ Error sending notification:", error);
 
-      // If token is invalid, remove it from database
       if (
-        error.code === "messaging/invalid-registration-token" ||
-        error.code === "messaging/registration-token-not-registered"
+        err.code === "messaging/invalid-registration-token" ||
+        err.code === "messaging/registration-token-not-registered"
       ) {
         await this.userRepository.update(userId, { fcm_token: null });
         console.log(`Removed invalid FCM token for user ${userId}`);
@@ -96,9 +114,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Send push notification to multiple users
-   */
   async sendToMultipleUsers(
     userIds: string[],
     payload: NotificationPayload
@@ -115,58 +130,68 @@ export class NotificationService {
     return { success, failure };
   }
 
-  /**
-   * Send new message notification
-   */
+  private persistNotification(
+    userId: string,
+    title: string,
+    body: string,
+    type: NotificationType,
+    data?: Record<string, string>
+  ): void {
+    this.notificationRepository
+      .create({
+        user_id: userId,
+        title,
+        body,
+        type,
+        data: data ?? null,
+      })
+      .catch(console.error);
+  }
+
   async notifyNewMessage(
     receiverId: string,
     senderName: string,
     messagePreview: string
   ): Promise<boolean> {
-    this.notificationRepository.create({
-      user_id: receiverId,
-      title: `New message from ${senderName}`,
-      body: messagePreview,
-      type: NotificationType.NEW_MESSAGE,
-    });
+    const body =
+      messagePreview.length > 100
+        ? messagePreview.substring(0, 100) + "..."
+        : messagePreview;
+
+    this.persistNotification(
+      receiverId,
+      `New message from ${senderName}`,
+      body,
+      NotificationType.NEW_MESSAGE,
+      { screen: "Chat" }
+    );
 
     return await this.sendToUser(receiverId, {
       title: `New message from ${senderName}`,
-      body:
-        messagePreview.length > 100
-          ? messagePreview.substring(0, 100) + "..."
-          : messagePreview,
+      body,
       type: NotificationType.NEW_MESSAGE,
-      data: {
-        screen: "Chat",
-        senderId: receiverId,
-      },
+      data: { screen: "Chat" },
     });
   }
 
-  /**
-   * Send connection request notification
-   */
   async notifyConnectionRequest(
     receiverId: string,
     senderName: string,
     senderId: string
   ): Promise<boolean> {
-    this.notificationRepository.create({
-      user_id: receiverId,
-      title: "New Connection Request",
-      body: `${senderName} sent you a connection request`,
-      type: NotificationType.FRIEND_REQUEST,
-    });
+    this.persistNotification(
+      receiverId,
+      "New Connection Request",
+      `${senderName} sent you a connection request`,
+      NotificationType.FRIEND_REQUEST,
+      { screen: "ConnectionRequests", senderId }
+    );
 
     return await this.sendToUser(receiverId, {
       title: "New Connection Request",
       body: `${senderName} sent you a connection request`,
       type: NotificationType.FRIEND_REQUEST,
-      data: {
-        screen: "ConnectionRequests",
-        senderId,
-      },
+      data: { screen: "ConnectionRequests", senderId },
     });
   }
 
@@ -179,29 +204,24 @@ export class NotificationService {
     return this.notifyConnectionRequest(receiverId, senderName, senderId);
   }
 
-  /**
-   * Send connection made notification
-   */
   async notifyConnectionMade(
     receiverId: string,
     accepterName: string,
     accepterId: string
   ): Promise<boolean> {
-    this.notificationRepository.create({
-      user_id: receiverId,
-      title: "Connection Made",
-      body: `${accepterName} is now your connection`,
-      type: NotificationType.FRIEND_ACCEPT,
-    });
+    this.persistNotification(
+      receiverId,
+      "Connection Made",
+      `${accepterName} is now your connection`,
+      NotificationType.CONNECTION_MADE,
+      { screen: "Profile", userId: accepterId }
+    );
 
     return await this.sendToUser(receiverId, {
       title: "Connection Made",
       body: `${accepterName} is now your connection`,
-      type: NotificationType.FRIEND_ACCEPT,
-      data: {
-        screen: "Profile",
-        userId: accepterId,
-      },
+      type: NotificationType.CONNECTION_MADE,
+      data: { screen: "Profile", userId: accepterId },
     });
   }
 
@@ -214,51 +234,220 @@ export class NotificationService {
     return this.notifyConnectionMade(receiverId, accepterName, accepterId);
   }
 
-  /**
-   * Send like notification
-   */
   async notifyLike(
     receiverId: string,
     likerName: string,
     likerId: string
   ): Promise<boolean> {
-    this.notificationRepository.create({
-      user_id: receiverId,
-      title: "New Like",
-      body: `${likerName} liked your profile`,
-      type: NotificationType.NEW_LIKE,
-    });
+    this.persistNotification(
+      receiverId,
+      "New Like",
+      `${likerName} liked your profile`,
+      NotificationType.NEW_LIKE,
+      { screen: "Profile", userId: likerId }
+    );
 
     return await this.sendToUser(receiverId, {
       title: "New Like",
       body: `${likerName} liked your profile`,
       type: NotificationType.NEW_LIKE,
-      data: {
-        screen: "Profile",
-        userId: likerId,
-      },
+      data: { screen: "Profile", userId: likerId },
     });
   }
 
-  /**
-   * Update user's FCM token
-   */
+  async notifyPostLiked(
+    postOwnerId: string,
+    likerId: string,
+    likerName: string,
+    postId: string
+  ): Promise<boolean> {
+    if (postOwnerId === likerId) {
+      return false;
+    }
+
+    emitPostLiked(postOwnerId, {
+      post_id: postId,
+      user_id: likerId,
+      user_name: likerName,
+    });
+
+    this.persistNotification(
+      postOwnerId,
+      "Post Liked",
+      `${likerName} liked your post`,
+      NotificationType.POST_LIKED,
+      { screen: "Post", postId, userId: likerId }
+    );
+
+    return await this.sendToUser(postOwnerId, {
+      title: "Post Liked",
+      body: `${likerName} liked your post`,
+      type: NotificationType.POST_LIKED,
+      data: { screen: "Post", postId, userId: likerId },
+    });
+  }
+
+  async notifyPostCommented(
+    postOwnerId: string,
+    commenterId: string,
+    commenterName: string,
+    postId: string,
+    commentId: string
+  ): Promise<boolean> {
+    if (postOwnerId === commenterId) {
+      return false;
+    }
+
+    emitPostCommented(postOwnerId, {
+      post_id: postId,
+      comment_id: commentId,
+      user_id: commenterId,
+    });
+
+    this.persistNotification(
+      postOwnerId,
+      "New Comment",
+      `${commenterName} commented on your post`,
+      NotificationType.POST_COMMENTED,
+      { screen: "Post", postId, commentId, userId: commenterId }
+    );
+
+    return await this.sendToUser(postOwnerId, {
+      title: "New Comment",
+      body: `${commenterName} commented on your post`,
+      type: NotificationType.POST_COMMENTED,
+      data: { screen: "Post", postId, commentId, userId: commenterId },
+    });
+  }
+
+  async notifyPointsMilestone(
+    userId: string,
+    balance: number
+  ): Promise<boolean> {
+    if (balance < POINTS_MILESTONE_BALANCE) {
+      return false;
+    }
+
+    const body = `You've reached ${balance} Anchor Points!`;
+
+    this.persistNotification(
+      userId,
+      "Points Milestone",
+      body,
+      NotificationType.POINTS_EARNED,
+      { screen: "Points", balance: String(balance) }
+    );
+
+    return await this.sendToUser(userId, {
+      title: "Points Milestone",
+      body,
+      type: NotificationType.POINTS_EARNED,
+      data: { screen: "Points", balance: String(balance) },
+    });
+  }
+
+  async notifyVideoIntroRequest(
+    calleeId: string,
+    callerId: string,
+    callerName: string,
+    callId: string
+  ): Promise<boolean> {
+    emitVideoCallRequest(calleeId, {
+      call_id: callId,
+      caller_id: callerId,
+      caller_name: callerName,
+    });
+
+    this.persistNotification(
+      calleeId,
+      "Video Intro Request",
+      `${callerName} wants a guided video intro`,
+      NotificationType.VIDEO_CALL_REQUEST,
+      { screen: "VideoIntro", callId, callerId }
+    );
+
+    return await this.sendToUser(calleeId, {
+      title: "Video Intro Request",
+      body: `${callerName} wants a guided video intro`,
+      type: NotificationType.VIDEO_CALL_REQUEST,
+      data: { screen: "VideoIntro", callId, callerId },
+      highPriority: true,
+    });
+  }
+
+  async notifyVideoCallAccepted(
+    callerId: string,
+    callId: string
+  ): Promise<boolean> {
+    emitVideoCallAccepted(callerId, { call_id: callId });
+
+    this.persistNotification(
+      callerId,
+      "Video Intro Accepted",
+      "Your video intro request was accepted",
+      NotificationType.VIDEO_CALL_ACCEPTED,
+      { screen: "VideoIntro", callId }
+    );
+
+    return await this.sendToUser(callerId, {
+      title: "Video Intro Accepted",
+      body: "Your video intro request was accepted",
+      type: NotificationType.VIDEO_CALL_ACCEPTED,
+      data: { screen: "VideoIntro", callId },
+    });
+  }
+
+  async notifyVideoCallRejected(
+    callerId: string,
+    callId: string
+  ): Promise<boolean> {
+    this.persistNotification(
+      callerId,
+      "Video Intro Declined",
+      "Your video intro request was declined",
+      NotificationType.VIDEO_CALL_REJECTED,
+      { screen: "VideoIntro", callId }
+    );
+
+    return await this.sendToUser(callerId, {
+      title: "Video Intro Declined",
+      body: "Your video intro request was declined",
+      type: NotificationType.VIDEO_CALL_REJECTED,
+      data: { screen: "VideoIntro", callId },
+    });
+  }
+
+  async notifyCircleJoin(
+    userId: string,
+    circleName: string,
+    circleId: string
+  ): Promise<boolean> {
+    this.persistNotification(
+      userId,
+      "Welcome to the Circle",
+      `You joined ${circleName}`,
+      NotificationType.CIRCLE_JOIN,
+      { screen: "Circle", circleId }
+    );
+
+    return await this.sendToUser(userId, {
+      title: "Welcome to the Circle",
+      body: `You joined ${circleName}`,
+      type: NotificationType.CIRCLE_JOIN,
+      data: { screen: "Circle", circleId },
+    });
+  }
+
   async updateFCMToken(userId: string, fcmToken: string): Promise<void> {
     await this.userRepository.update(userId, { fcm_token: fcmToken });
     console.log(`✅ FCM token updated for user ${userId}`);
   }
 
-  /**
-   * Remove user's FCM token (on logout)
-   */
   async removeFCMToken(userId: string): Promise<void> {
     await this.userRepository.update(userId, { fcm_token: null });
     console.log(`✅ FCM token removed for user ${userId}`);
   }
 
-  /**
-   * Toggle notifications for user
-   */
   async toggleNotifications(userId: string, enabled: boolean): Promise<void> {
     await this.userRepository.update(userId, {
       notifications_enabled: enabled,
@@ -268,10 +457,20 @@ export class NotificationService {
     );
   }
 
-  /**
-   * Get all notifications for user
-   */
-  async getNotifications(userId: string): Promise<Notification[]> {
-    return await this.notificationRepository.findByUserId(userId);
+  async getNotifications(userId: string): Promise<NotificationListItem[]> {
+    const notifications =
+      await this.notificationRepository.findByUserId(userId);
+    return notifications.map((notification) => this.formatNotification(notification));
+  }
+
+  private formatNotification(notification: Notification): NotificationListItem {
+    return {
+      id: notification.id,
+      title: notification.title,
+      body: notification.body,
+      type: notification.type,
+      data: notification.data ?? null,
+      created_at: notification.created_at,
+    };
   }
 }

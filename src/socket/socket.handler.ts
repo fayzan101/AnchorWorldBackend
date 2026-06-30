@@ -9,6 +9,7 @@ import {
 } from "../types";
 import { AuthenticatedSocket } from "../middleware/socket.middleware";
 import { NotificationService } from "../services/notification.service";
+import { userRoom } from "../services/socket-event.service";
 
 // Store online users: userId -> socketId
 const onlineUsers = new Map<string, string>();
@@ -32,6 +33,9 @@ export class SocketHandler {
 
     // Store user's socket ID
     onlineUsers.set(userId, socket.id);
+
+    // Join personal room for targeted real-time events
+    socket.join(userRoom(userId));
 
     // Update user's online status
     this.userService.updateOnlineStatus(userId, true).catch(console.error);
