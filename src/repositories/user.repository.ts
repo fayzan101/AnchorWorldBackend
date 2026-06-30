@@ -97,9 +97,9 @@ export class UserRepository {
         u.created_at,
         GROUP_CONCAT(DISTINCT h.name) AS hobbies,
         CASE
-          WHEN f1.status = 'accepted' AND f2.status = 'accepted' THEN 'friends'
-          WHEN f1.status = 'pending' THEN 'request_sent'
-          WHEN f2.status = 'pending' THEN 'request_received'
+          WHEN f1.status = 'accepted' AND f2.status = 'accepted' THEN 'connected'
+          WHEN f1.status = 'pending' THEN 'pending_sent'
+          WHEN f2.status = 'pending' THEN 'pending_received'
           ELSE 'none'
         END as relationship_status,
         CASE

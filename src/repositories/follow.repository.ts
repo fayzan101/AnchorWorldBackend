@@ -58,7 +58,7 @@ export class FollowRepository {
         u.full_name,
         u.profile_picture,
         u.bio,
-        u.location,
+        u.city,
         u.is_online,
         u.last_seen
       FROM follows f1

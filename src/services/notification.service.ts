@@ -145,55 +145,73 @@ export class NotificationService {
   }
 
   /**
-   * Send friend request notification
+   * Send connection request notification
    */
-  async notifyFriendRequest(
+  async notifyConnectionRequest(
     receiverId: string,
     senderName: string,
     senderId: string
   ): Promise<boolean> {
     this.notificationRepository.create({
       user_id: receiverId,
-      title: "New Friend Request",
-      body: `${senderName} sent you a friend request`,
+      title: "New Connection Request",
+      body: `${senderName} sent you a connection request`,
       type: NotificationType.FRIEND_REQUEST,
     });
 
     return await this.sendToUser(receiverId, {
-      title: "New Friend Request",
-      body: `${senderName} sent you a friend request`,
+      title: "New Connection Request",
+      body: `${senderName} sent you a connection request`,
       type: NotificationType.FRIEND_REQUEST,
       data: {
-        screen: "FriendRequests",
+        screen: "ConnectionRequests",
         senderId,
       },
     });
   }
 
+  /** @deprecated Use notifyConnectionRequest */
+  async notifyFriendRequest(
+    receiverId: string,
+    senderName: string,
+    senderId: string
+  ): Promise<boolean> {
+    return this.notifyConnectionRequest(receiverId, senderName, senderId);
+  }
+
   /**
-   * Send friend request accepted notification
+   * Send connection made notification
    */
-  async notifyFriendAccept(
+  async notifyConnectionMade(
     receiverId: string,
     accepterName: string,
     accepterId: string
   ): Promise<boolean> {
     this.notificationRepository.create({
       user_id: receiverId,
-      title: "Friend Request Accepted",
-      body: `${accepterName} accepted your friend request`,
+      title: "Connection Made",
+      body: `${accepterName} is now your connection`,
       type: NotificationType.FRIEND_ACCEPT,
     });
 
     return await this.sendToUser(receiverId, {
-      title: "Friend Request Accepted",
-      body: `${accepterName} accepted your friend request`,
+      title: "Connection Made",
+      body: `${accepterName} is now your connection`,
       type: NotificationType.FRIEND_ACCEPT,
       data: {
         screen: "Profile",
         userId: accepterId,
       },
     });
+  }
+
+  /** @deprecated Use notifyConnectionMade */
+  async notifyFriendAccept(
+    receiverId: string,
+    accepterName: string,
+    accepterId: string
+  ): Promise<boolean> {
+    return this.notifyConnectionMade(receiverId, accepterName, accepterId);
   }
 
   /**
