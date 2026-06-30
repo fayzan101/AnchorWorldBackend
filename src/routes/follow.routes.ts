@@ -40,18 +40,8 @@ router.get(
  */
 router.post('/:userId', followController.sendFollowRequest);
 
-/**
- * @route   PUT /api/follows/:followId/accept
- * @desc    Accept follow request
- * @access  Private
- */
+router.post('/:userId', followController.sendFollowRequest);
 router.put('/:followId/accept', followController.acceptFollowRequest);
-
-/**
- * @route   DELETE /api/follows/:followId
- * @desc    Remove/reject follow
- * @access  Private
- */
 router.delete('/:followId', followController.removeFollow);
 
 export default router;
