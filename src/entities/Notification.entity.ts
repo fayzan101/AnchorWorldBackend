@@ -7,7 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from "typeorm";
-import { NotificationType } from "../services/notification.service";
+import { NotificationType } from "../constants/notification-types";
 import { User } from "./User.entity";
 
 @Entity("notifications")
@@ -38,6 +38,9 @@ export class Notification {
     nullable: false,
   })
   type: NotificationType;
+
+  @Column({ type: "json", nullable: true })
+  data: Record<string, string> | null;
 
   @CreateDateColumn()
   created_at: Date;

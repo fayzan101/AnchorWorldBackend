@@ -6,6 +6,7 @@ import { CircleRepository } from "../repositories/circle.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { PointsService } from "./points.service";
+import { NotificationService } from "./notification.service";
 import { AppError } from "../middleware/error.middleware";
 import { Post, PostMediaType } from "../entities/Post.entity";
 import { User } from "../entities/User.entity";
@@ -37,6 +38,7 @@ export class PostService {
   private followRepository: FollowRepository;
   private userRepository: UserRepository;
   private pointsService: PointsService;
+  private notificationService: NotificationService;
 
   constructor(
     postRepository?: PostRepository,
@@ -45,7 +47,8 @@ export class PostService {
     circleRepository?: CircleRepository,
     followRepository?: FollowRepository,
     userRepository?: UserRepository,
-    pointsService?: PointsService
+    pointsService?: PointsService,
+    notificationService?: NotificationService
   ) {
     this.postRepository = postRepository ?? new PostRepository();
     this.postLikeRepository = postLikeRepository ?? new PostLikeRepository();
@@ -55,6 +58,7 @@ export class PostService {
     this.followRepository = followRepository ?? new FollowRepository();
     this.userRepository = userRepository ?? new UserRepository();
     this.pointsService = pointsService ?? new PointsService();
+    this.notificationService = notificationService ?? new NotificationService();
   }
 
   async getFeed(
@@ -276,6 +280,16 @@ export class PostService {
     }
 
     const updated = await this.postRepository.findById(postId);
+
+    if (post.user_id !== userId) {
+      const liker = await this.userRepository.findById(userId);
+      if (liker) {
+        this.notificationService
+          .notifyPostLiked(post.user_id, userId, liker.full_name, postId)
+          .catch(console.error);
+      }
+    }
+
     return {
       like_count: updated!.like_count,
       points_awarded_to_owner: pointsAwarded,
@@ -382,6 +396,20 @@ export class PostService {
     }
 
     const saved = await this.postCommentRepository.findById(comment.id);
+
+    if (post.user_id !== userId) {
+      const commenter = saved!.user;
+      this.notificationService
+        .notifyPostCommented(
+          post.user_id,
+          userId,
+          commenter.full_name,
+          postId,
+          comment.id
+        )
+        .catch(console.error);
+    }
+
     return this.formatComment(saved!);
   }
 

@@ -2,6 +2,7 @@ import { CircleService } from "../services/circle.service";
 import { CircleRepository } from "../repositories/circle.repository";
 import { PointsService } from "../services/points.service";
 import { PostService } from "../services/post.service";
+import { NotificationService } from "../services/notification.service";
 import { Circle } from "../entities/Circle.entity";
 
 jest.mock("../config/database", () => ({
@@ -31,10 +32,15 @@ describe("CircleService", () => {
     getCirclePosts: jest.fn(),
   } as unknown as jest.Mocked<PostService>;
 
+  const mockNotificationService = {
+    notifyCircleJoin: jest.fn().mockResolvedValue(true),
+  } as unknown as jest.Mocked<NotificationService>;
+
   const service = new CircleService(
     mockCircleRepository,
     mockPointsService,
-    mockPostService
+    mockPostService,
+    mockNotificationService
   );
 
   const sampleCircle: Circle = {
@@ -92,6 +98,11 @@ describe("CircleService", () => {
     );
     expect(result.points_awarded).toBe(30);
     expect(result.circle.is_joined).toBe(true);
+    expect(mockNotificationService.notifyCircleJoin).toHaveBeenCalledWith(
+      "user-1",
+      "Fitness & Health",
+      "circle-1"
+    );
   });
 
   it("rejects joining when already a member", async () => {

@@ -6,8 +6,13 @@ import { CircleRepository } from "../repositories/circle.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { PointsService } from "../services/points.service";
+import { NotificationService } from "../services/notification.service";
 import { Post, PostMediaType } from "../entities/Post.entity";
 import { User } from "../entities/User.entity";
+
+jest.mock("../utils/block.util", () => ({
+  getBlockedUserIds: jest.fn().mockResolvedValue([]),
+}));
 
 jest.mock("../config/database", () => ({
   AppDataSource: {
@@ -61,6 +66,11 @@ describe("PostService", () => {
     awardPointsWithinDailyPointsCap: jest.fn(),
   } as unknown as jest.Mocked<PointsService>;
 
+  const mockNotificationService = {
+    notifyPostLiked: jest.fn().mockResolvedValue(true),
+    notifyPostCommented: jest.fn().mockResolvedValue(true),
+  } as unknown as jest.Mocked<NotificationService>;
+
   const service = new PostService(
     mockPostRepository,
     mockPostLikeRepository,
@@ -68,7 +78,8 @@ describe("PostService", () => {
     mockCircleRepository,
     mockFollowRepository,
     mockUserRepository,
-    mockPointsService
+    mockPointsService,
+    mockNotificationService
   );
 
   const viewer: User = {
@@ -191,6 +202,12 @@ describe("PostService", () => {
       50,
       "post-1",
       "Someone liked your post"
+    );
+    expect(mockNotificationService.notifyPostLiked).toHaveBeenCalledWith(
+      "owner-1",
+      "user-1",
+      "Tester",
+      "post-1"
     );
   });
 });

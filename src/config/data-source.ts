@@ -24,6 +24,7 @@ import { PointsTables1719000000002 } from "../migrations/1719000000002-PointsTab
 import { CirclesTables1719000000003 } from "../migrations/1719000000003-CirclesTables";
 import { PostsTables1719000000004 } from "../migrations/1719000000004-PostsTables";
 import { VideoCallsTable1719000000005 } from "../migrations/1719000000005-VideoCallsTable";
+import { NotificationTypesAndData1719000000006 } from "../migrations/1719000000006-NotificationTypesAndData";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -60,6 +61,7 @@ export const AppDataSource = new DataSource({
     CirclesTables1719000000003,
     PostsTables1719000000004,
     VideoCallsTable1719000000005,
+    NotificationTypesAndData1719000000006,
   ],
   subscribers: [],
   charset: "utf8mb4",
