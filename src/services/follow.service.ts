@@ -211,19 +211,21 @@ export class FollowService {
     user2Id: string
   ): Promise<void> {
     const amount = PointAmounts[PointTypes.CONNECTION_MADE];
-    const awards = [
-      { userId: user1Id, referenceId: user2Id },
-      { userId: user2Id, referenceId: user1Id },
-    ].sort((a, b) => a.userId.localeCompare(b.userId));
-
-    for (const { userId, referenceId } of awards) {
-      await this.pointsService.awardPointsOncePerReference(
-        userId,
+    await Promise.all([
+      this.pointsService.awardPointsOncePerReference(
+        user1Id,
         amount,
         PointTypes.CONNECTION_MADE,
-        referenceId,
+        user2Id,
         "New connection made"
-      );
-    }
+      ),
+      this.pointsService.awardPointsOncePerReference(
+        user2Id,
+        amount,
+        PointTypes.CONNECTION_MADE,
+        user1Id,
+        "New connection made"
+      ),
+    ]);
   }
 }

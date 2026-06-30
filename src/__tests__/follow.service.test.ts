@@ -52,7 +52,9 @@ describe("FollowService", () => {
       checkMutualFollow: jest.fn(),
     } as unknown as jest.Mocked<FollowRepository>;
 
-    userRepository = { findById: jest.fn() } as unknown as jest.Mocked<UserRepository>;
+    userRepository = {
+      findById: jest.fn(),
+    } as unknown as jest.Mocked<UserRepository>;
 
     notificationService = {
       notifyConnectionRequest: jest.fn().mockResolvedValue(true),
@@ -74,7 +76,33 @@ describe("FollowService", () => {
     );
   });
 
-  it("auto-connects and awards points sequentially when reverse request pending", async () => {
+  it("rejects follow when users are blocked", async () => {
+    jest.mocked(isEitherBlocked).mockResolvedValue(true);
+
+    await expect(
+      service.sendFollowRequest(followerId, followingId)
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("sends connection request and notifies recipient", async () => {
+    userRepository.findById
+      .mockResolvedValueOnce(mockUser(followingId, "Bob"))
+      .mockResolvedValueOnce(mockUser(followerId, "Alice"));
+    followRepository.findByUsers.mockResolvedValue(null);
+    followRepository.create.mockResolvedValue(mockFollow());
+
+    const result = await service.sendFollowRequest(followerId, followingId);
+
+    expect(result.status).toBe("pending");
+    expect(notificationService.notifyConnectionRequest).toHaveBeenCalledWith(
+      followingId,
+      "Alice",
+      followerId
+    );
+    expect(pointsService.awardPointsOncePerReference).not.toHaveBeenCalled();
+  });
+
+  it("auto-connects and awards points when reverse request is pending", async () => {
     userRepository.findById
       .mockResolvedValueOnce(mockUser(followingId, "Bob"))
       .mockResolvedValueOnce(mockUser(followerId, "Alice"));
@@ -101,6 +129,57 @@ describe("FollowService", () => {
       followingId,
       "New connection made"
     );
+    expect(notificationService.notifyConnectionMade).toHaveBeenCalled();
+  });
+
+  it("awards connection points when accepting a request", async () => {
+    const pending = mockFollow({
+      id: "follow-pending",
+      follower_id: followingId,
+      following_id: followerId,
+    });
+    followRepository.findById.mockResolvedValue(pending);
+    followRepository.acceptFollow.mockResolvedValue(
+      mockFollow({ status: FollowStatus.ACCEPTED })
+    );
+    followRepository.findByUsers.mockResolvedValue(null);
+    followRepository.create.mockResolvedValue(
+      mockFollow({
+        status: FollowStatus.ACCEPTED,
+        follower_id: followerId,
+        following_id: followingId,
+      })
+    );
+    userRepository.findById.mockResolvedValue(mockUser(followerId, "Alice"));
+
+    const result = await service.acceptFollowRequest(
+      "follow-pending",
+      followerId
+    );
+
+    expect(result.message).toBe("You are now connected!");
+    expect(pointsService.awardPointsOncePerReference).toHaveBeenCalledTimes(2);
+    expect(notificationService.notifyConnectionMade).toHaveBeenCalled();
+  });
+
+  it("returns connections list from repository", async () => {
+    followRepository.getMatches.mockResolvedValue([
+      {
+        id: followingId,
+        full_name: "Bob",
+        profile_picture: null,
+        bio: "Hi",
+        city: "Austin",
+        is_online: true,
+        last_seen: null,
+      },
+    ]);
+
+    const connections = await service.getConnections(followerId);
+
+    expect(connections).toHaveLength(1);
+    expect(connections[0].full_name).toBe("Bob");
+    expect(connections[0].city).toBe("Austin");
   });
 
   it("throws when accepting a request not addressed to the user", async () => {

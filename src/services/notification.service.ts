@@ -144,6 +144,9 @@ export class NotificationService {
     });
   }
 
+  /**
+   * Send connection request notification
+   */
   async notifyConnectionRequest(
     receiverId: string,
     senderName: string,
@@ -167,6 +170,7 @@ export class NotificationService {
     });
   }
 
+  /** @deprecated Use notifyConnectionRequest */
   async notifyFriendRequest(
     receiverId: string,
     senderName: string,
@@ -175,6 +179,9 @@ export class NotificationService {
     return this.notifyConnectionRequest(receiverId, senderName, senderId);
   }
 
+  /**
+   * Send connection made notification
+   */
   async notifyConnectionMade(
     receiverId: string,
     accepterName: string,
@@ -198,6 +205,7 @@ export class NotificationService {
     });
   }
 
+  /** @deprecated Use notifyConnectionMade */
   async notifyFriendAccept(
     receiverId: string,
     accepterName: string,

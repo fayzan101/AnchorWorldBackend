@@ -66,6 +66,7 @@ export class FollowController {
     }
   };
 
+  /** @deprecated Use getConnections — kept for backward compatibility */
   getMatches = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;

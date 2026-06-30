@@ -27,11 +27,11 @@ tags:
   - name: Users
     description: User discovery and reporting
   - name: Follows
-    description: Follow requests and mutual connections (matches)
+    description: Connection requests and mutual connections
   - name: Messages
-    description: REST messaging (mutual follow required)
+    description: REST messaging (mutual connection required)
   - name: Likes
-    description: Profile likes (legacy)
+    description: Profile likes (legacy — deprecated)
   - name: Notifications
     description: FCM tokens and in-app notification list
   - name: Reference Data
@@ -469,14 +469,17 @@ paths:
   /follows/{userId}:
     post:
       tags: [Follows]
-      summary: Send follow request
+      summary: Send connection request
+      description: |
+        Sends a follow/connection request. If the other user already sent a pending request,
+        both are auto-accepted and each user earns **+50 Anchor Points** once per pair.
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/UserId"
       responses:
         "201":
-          description: Follow request sent (or auto-matched if reverse pending)
+          description: Connection request sent (or auto-connected if reverse pending)
           content:
             application/json:
               schema:
@@ -486,13 +489,18 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/FollowRecord"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
 
   /follows/{followId}/accept:
     put:
       tags: [Follows]
-      summary: Accept follow request
+      summary: Accept connection request
+      description: |
+        Accepts a pending request and creates a mutual connection. Each user earns
+        **+50 Anchor Points** once per pair when the connection is first established.
       security:
         - bearerAuth: []
       parameters:
@@ -535,7 +543,7 @@ paths:
   /follows/pending:
     get:
       tags: [Follows]
-      summary: Get pending follow requests
+      summary: Get pending connection requests
       security:
         - bearerAuth: []
       responses:
@@ -556,11 +564,11 @@ paths:
                             items:
                               $ref: "#/components/schemas/PendingFollowRequest"
 
-  /follows/matches:
+  /follows/connections:
     get:
       tags: [Follows]
-      summary: Get mutual connections (matches)
-      description: Users with mutual accepted follows. Planned rename to `/follows/connections`.
+      summary: Get mutual connections
+      description: Canonical endpoint for users with mutual accepted follows.
       security:
         - bearerAuth: []
       responses:
@@ -576,10 +584,43 @@ paths:
                       data:
                         type: object
                         properties:
+                          connections:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/ConnectionUser"
+
+  /follows/matches:
+    get:
+      tags: [Follows]
+      summary: Get mutual connections (deprecated)
+      deprecated: true
+      description: |
+        **Deprecated** — use `GET /follows/connections` instead. Returns the same users
+        under the legacy `matches` key. Response includes `X-Deprecated: true` header.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of mutual connections (legacy response shape)
+          headers:
+            X-Deprecated:
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
                           matches:
                             type: array
                             items:
-                              $ref: "#/components/schemas/MatchUser"
+                              $ref: "#/components/schemas/ConnectionUser"
 
   /messages/conversations:
     get:
@@ -640,7 +681,7 @@ paths:
     get:
       tags: [Messages]
       summary: Get chat history with a user
-      description: Requires mutual follow.
+      description: Requires mutual connection (both users must have accepted follows).
       security:
         - bearerAuth: []
       parameters:
@@ -663,7 +704,7 @@ paths:
     post:
       tags: [Messages]
       summary: Send message to user
-      description: Requires mutual follow.
+      description: Requires mutual connection. Blocked users cannot exchange messages.
       security:
         - bearerAuth: []
       requestBody:
@@ -750,7 +791,9 @@ paths:
       - $ref: "#/components/parameters/UserId"
     post:
       tags: [Likes]
-      summary: Like a user's profile
+      summary: Like a user's profile (deprecated)
+      deprecated: true
+      description: Legacy dating feature. Kept for backward compatibility; no new notifications are sent.
       security:
         - bearerAuth: []
       responses:
@@ -777,7 +820,8 @@ paths:
                             format: date-time
     delete:
       tags: [Likes]
-      summary: Unlike a user's profile
+      summary: Unlike a user's profile (deprecated)
+      deprecated: true
       security:
         - bearerAuth: []
       responses:
@@ -2442,7 +2486,32 @@ components:
           format: date-time
         message:
           type: string
-          example: You are now friends!
+          example: You are now connected!
+
+    ConnectionUser:
+      type: object
+      description: A mutual connection (both users accepted each other's follow)
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        profile_picture:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        is_online:
+          type: boolean
+        last_seen:
+          type: string
+          format: date-time
+          nullable: true
 
     PendingFollowRequest:
       type: object
@@ -2469,28 +2538,10 @@ components:
           format: date-time
 
     MatchUser:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        full_name:
-          type: string
-        profile_picture:
-          type: string
-          nullable: true
-        bio:
-          type: string
-          nullable: true
-        location:
-          type: string
-          nullable: true
-        is_online:
-          type: boolean
-        last_seen:
-          type: string
-          format: date-time
-          nullable: true
+      deprecated: true
+      description: Alias of ConnectionUser — use ConnectionUser instead
+      allOf:
+        - $ref: "#/components/schemas/ConnectionUser"
 
     SendMessageRequest:
       type: object
