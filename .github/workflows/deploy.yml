@@ -37,7 +37,7 @@ jobs:
             LOCKFILE_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
             INSTALL_HASH_FILE=".npm-ci.lockhash"
             if [ ! -d node_modules ] || [ ! -f "$INSTALL_HASH_FILE" ] || [ "$LOCKFILE_HASH" != "$(cat "$INSTALL_HASH_FILE")" ]; then
-              npm ci
+              npm ci --prefer-offline --no-audit --no-fund
               printf '%s' "$LOCKFILE_HASH" > "$INSTALL_HASH_FILE"
             fi
 
@@ -59,7 +59,7 @@ jobs:
                 exit 0
               fi
 
-              sleep 2
+              sleep 1
             done
 
             echo "Health check failed after waiting for the app to start" >&2
