@@ -130,22 +130,24 @@ export class NotificationService {
     return { success, failure };
   }
 
-  private persistNotification(
+  private async persistNotification(
     userId: string,
     title: string,
     body: string,
     type: NotificationType,
     data?: Record<string, string>
-  ): void {
-    this.notificationRepository
-      .create({
+  ): Promise<void> {
+    try {
+      await this.notificationRepository.create({
         user_id: userId,
         title,
         body,
         type,
         data: data ?? null,
-      })
-      .catch(console.error);
+      });
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   async notifyNewMessage(
@@ -158,7 +160,7 @@ export class NotificationService {
         ? messagePreview.substring(0, 100) + "..."
         : messagePreview;
 
-    this.persistNotification(
+    await this.persistNotification(
       receiverId,
       `New message from ${senderName}`,
       body,
@@ -179,7 +181,7 @@ export class NotificationService {
     senderName: string,
     senderId: string
   ): Promise<boolean> {
-    this.persistNotification(
+    await this.persistNotification(
       receiverId,
       "New Connection Request",
       `${senderName} sent you a connection request`,
@@ -209,7 +211,7 @@ export class NotificationService {
     accepterName: string,
     accepterId: string
   ): Promise<boolean> {
-    this.persistNotification(
+    await this.persistNotification(
       receiverId,
       "Connection Made",
       `${accepterName} is now your connection`,
@@ -239,7 +241,7 @@ export class NotificationService {
     likerName: string,
     likerId: string
   ): Promise<boolean> {
-    this.persistNotification(
+    await this.persistNotification(
       receiverId,
       "New Like",
       `${likerName} liked your profile`,
@@ -271,7 +273,7 @@ export class NotificationService {
       user_name: likerName,
     });
 
-    this.persistNotification(
+    await this.persistNotification(
       postOwnerId,
       "Post Liked",
       `${likerName} liked your post`,
@@ -304,7 +306,7 @@ export class NotificationService {
       user_id: commenterId,
     });
 
-    this.persistNotification(
+    await this.persistNotification(
       postOwnerId,
       "New Comment",
       `${commenterName} commented on your post`,
@@ -330,7 +332,7 @@ export class NotificationService {
 
     const body = `You've reached ${balance} Anchor Points!`;
 
-    this.persistNotification(
+    await this.persistNotification(
       userId,
       "Points Milestone",
       body,
@@ -358,7 +360,7 @@ export class NotificationService {
       caller_name: callerName,
     });
 
-    this.persistNotification(
+    await this.persistNotification(
       calleeId,
       "Video Intro Request",
       `${callerName} wants a guided video intro`,
@@ -381,7 +383,7 @@ export class NotificationService {
   ): Promise<boolean> {
     emitVideoCallAccepted(callerId, { call_id: callId });
 
-    this.persistNotification(
+    await this.persistNotification(
       callerId,
       "Video Intro Accepted",
       "Your video intro request was accepted",
@@ -401,7 +403,7 @@ export class NotificationService {
     callerId: string,
     callId: string
   ): Promise<boolean> {
-    this.persistNotification(
+    await this.persistNotification(
       callerId,
       "Video Intro Declined",
       "Your video intro request was declined",
@@ -422,7 +424,7 @@ export class NotificationService {
     circleName: string,
     circleId: string
   ): Promise<boolean> {
-    this.persistNotification(
+    await this.persistNotification(
       userId,
       "Welcome to the Circle",
       `You joined ${circleName}`,
