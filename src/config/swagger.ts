@@ -32,7 +32,7 @@ export function setupSwagger(app: Application): void {
     `${apiPrefix}/docs`,
     swaggerUi.serve,
     swaggerUi.setup(swaggerDocument, {
-      customSiteTitle: "Anchor Heart API Docs",
+      customSiteTitle: "Anchor App API Docs",
       swaggerOptions: {
         persistAuthorization: true,
         docExpansion: "list",
