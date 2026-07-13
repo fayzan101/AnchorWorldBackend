@@ -57,6 +57,12 @@ export const config = {
     appId: process.env.AGORA_APP_ID || "",
     appCertificate: process.env.AGORA_APP_CERTIFICATE || "",
   },
+  admin: {
+    userIds: (process.env.ADMIN_USER_IDS || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean),
+  },
 };
 
 export default config;

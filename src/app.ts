@@ -26,6 +26,7 @@ import commentRoutes from "./routes/comment.routes";
 import onboardingRoutes from "./routes/onboarding.routes";
 import discoverRoutes from "./routes/discover.routes";
 import videoCallRoutes from "./routes/video-call.routes";
+import adminRoutes from "./routes/admin.routes";
 import metricsRoutes from "./routes/metrics.routes";
 
 export function createApp(): Application {
@@ -103,6 +104,7 @@ export function createApp(): Application {
   app.use(`${apiPrefix}/onboarding`, onboardingRoutes);
   app.use(`${apiPrefix}/discover`, discoverRoutes);
   app.use(`${apiPrefix}/video-calls`, videoCallRoutes);
+  app.use(`${apiPrefix}/admin`, adminRoutes);
 
   setupSwagger(app);
   app.use(notFoundHandler);

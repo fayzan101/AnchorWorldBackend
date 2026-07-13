@@ -81,7 +81,8 @@ export class UserRepository {
     page: number = 1,
     limit: number = 20,
     gender?: Gender,
-    search?: string
+    search?: string,
+    blockedUserIds: string[] = []
   ): Promise<{ users: any[]; total: number }> {
     let query = `
       SELECT 
@@ -116,6 +117,11 @@ export class UserRepository {
 
     const params: any[] = [currentUserId, currentUserId, currentUserId];
 
+    if (blockedUserIds.length > 0) {
+      query += ` AND u.id NOT IN (${blockedUserIds.map(() => "?").join(",")})`;
+      params.push(...blockedUserIds);
+    }
+
     if (gender) {
       query += ` AND u.gender = ?`;
       params.push(gender);
@@ -131,13 +137,17 @@ export class UserRepository {
 
     const users = await this.repository.query(query, params);
 
-    // Get total count
     let countQuery = `
       SELECT COUNT(DISTINCT u.id) as total
       FROM users u
       WHERE u.id != ?
     `;
     const countParams: any[] = [currentUserId];
+
+    if (blockedUserIds.length > 0) {
+      countQuery += ` AND u.id NOT IN (${blockedUserIds.map(() => "?").join(",")})`;
+      countParams.push(...blockedUserIds);
+    }
 
     if (gender) {
       countQuery += ` AND u.gender = ?`;

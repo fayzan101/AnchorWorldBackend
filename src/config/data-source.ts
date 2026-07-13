@@ -18,6 +18,9 @@ import { Post } from "../entities/Post.entity";
 import { PostLike } from "../entities/PostLike.entity";
 import { PostComment } from "../entities/PostComment.entity";
 import { VideoCall } from "../entities/VideoCall.entity";
+import { UserBlock } from "../entities/UserBlock.entity";
+import { ContentReport } from "../entities/ContentReport.entity";
+import { ModerationAction } from "../entities/ModerationAction.entity";
 import { CommunityUserFields1719000000001 } from "../migrations/1719000000001-CommunityUserFields";
 import { InitialSchema1719000000000 } from "../migrations/1719000000000-InitialSchema";
 import { PointsTables1719000000002 } from "../migrations/1719000000002-PointsTables";
@@ -25,6 +28,7 @@ import { CirclesTables1719000000003 } from "../migrations/1719000000003-CirclesT
 import { PostsTables1719000000004 } from "../migrations/1719000000004-PostsTables";
 import { VideoCallsTable1719000000005 } from "../migrations/1719000000005-VideoCallsTable";
 import { NotificationTypesAndData1719000000006 } from "../migrations/1719000000006-NotificationTypesAndData";
+import { BlocksAndModerationTables1719000000007 } from "../migrations/1719000000007-BlocksAndModerationTables";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -53,6 +57,9 @@ export const AppDataSource = new DataSource({
     PostLike,
     PostComment,
     VideoCall,
+    UserBlock,
+    ContentReport,
+    ModerationAction,
   ],
   migrations: [
     InitialSchema1719000000000,
@@ -62,6 +69,7 @@ export const AppDataSource = new DataSource({
     PostsTables1719000000004,
     VideoCallsTable1719000000005,
     NotificationTypesAndData1719000000006,
+    BlocksAndModerationTables1719000000007,
   ],
   subscribers: [],
   charset: "utf8mb4",

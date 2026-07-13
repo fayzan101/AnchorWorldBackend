@@ -4,6 +4,7 @@ import { PointsService } from "./points.service";
 import { CircleService } from "./circle.service";
 import { PostService } from "./post.service";
 import { HobbyRepository } from "../repositories/hobby.repository";
+import { ModerationService } from "./moderation.service";
 import {
   CommunityProfileUpdateDto,
   OwnProfile,
@@ -17,6 +18,7 @@ import {
   toOwnProfile,
   toPublicUser,
 } from "../utils/user-response.mapper";
+import { getBlockedUserIds, isEitherBlocked } from "../utils/block.util";
 
 const DEPRECATED_PROFILE_FIELDS = [
   "seeking_relation",
@@ -37,6 +39,7 @@ export class UserService {
   private circleService: CircleService;
   private postService: PostService;
   private hobbyRepository: HobbyRepository;
+  private moderationService: ModerationService;
 
   constructor(
     userRepository?: UserRepository,
@@ -44,7 +47,8 @@ export class UserService {
     pointsService?: PointsService,
     circleService?: CircleService,
     postService?: PostService,
-    hobbyRepository?: HobbyRepository
+    hobbyRepository?: HobbyRepository,
+    moderationService?: ModerationService
   ) {
     this.userRepository = userRepository ?? new UserRepository();
     this.followRepository = followRepository ?? new FollowRepository();
@@ -52,6 +56,7 @@ export class UserService {
     this.circleService = circleService ?? new CircleService();
     this.postService = postService ?? new PostService();
     this.hobbyRepository = hobbyRepository ?? new HobbyRepository();
+    this.moderationService = moderationService ?? new ModerationService();
   }
 
   async getProfile(userId: string): Promise<OwnProfile> {
@@ -170,6 +175,12 @@ export class UserService {
     userId: string,
     requestingUserId?: string
   ): Promise<PublicUserProfile> {
+    if (requestingUserId && requestingUserId !== userId) {
+      if (await isEitherBlocked(requestingUserId, userId)) {
+        throw new AppError("User not found", 404);
+      }
+    }
+
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new AppError("User not found", 404);
@@ -197,8 +208,12 @@ export class UserService {
     });
   }
 
-  async markReportById(userId: string) {
-    await this.userRepository.markReportById(userId);
+  async markReportById(
+    userId: string,
+    reporterId: string,
+    reason?: string
+  ) {
+    return this.moderationService.reportUser(reporterId, userId, { reason });
   }
 
   async getAllUsers(query: UserListQuery, currentUserId: string) {
@@ -211,6 +226,7 @@ export class UserService {
 
     const page = query.page || 1;
     const limit = query.limit || 20;
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
 
     const { users, total } =
       await this.userRepository.findAllWithRelationshipStatus(
@@ -218,7 +234,8 @@ export class UserService {
         page,
         limit,
         query.gender,
-        query.search
+        query.search,
+        blockedUserIds
       );
 
     const items = users.map((user: Record<string, unknown>) =>

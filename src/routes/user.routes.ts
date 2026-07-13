@@ -1,23 +1,19 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
 import { PostController } from '../controllers/post.controller';
+import { BlockController } from '../controllers/block.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { ValidationUtil } from '../utils/validation.util';
 import { validate } from '../middleware/validation.middleware';
-// import { upload } from '../middleware/upload.middleware';
+import { body } from 'express-validator';
 
 const router = Router();
 const userController = new UserController();
 const postController = new PostController();
+const blockController = new BlockController();
 
-// All routes require authentication
 router.use(authenticateToken);
 
-/**
- * @route   GET /api/users
- * @desc    Get all users (with filters)
- * @access  Private
- */
 router.get(
   '/',
   ValidationUtil.userListQuery(),
@@ -25,11 +21,13 @@ router.get(
   userController.getAllUsers
 );
 
-/**
- * @route   GET /api/users/:userId/posts
- * @desc    Get posts by user
- * @access  Private
- */
+router.get(
+  '/blocked',
+  ValidationUtil.pagination(),
+  validate,
+  blockController.listBlocked
+);
+
 router.get(
   '/:userId/posts',
   ValidationUtil.pagination(),
@@ -37,18 +35,22 @@ router.get(
   postController.getUserPosts
 );
 
-/**
- * @route   GET /api/users/:userId
- * @desc    Get user by ID
- * @access  Private
- */
+router.post('/:userId/block', blockController.blockUser);
+router.delete('/:userId/block', blockController.unblockUser);
+
 router.get('/:userId', userController.getUserById);
 
-/**
- * @route   PUT /api/users/:userId
- * @desc    Mark a report spam user by ID
- * @access  Private
- */
-router.put('/:userId', userController.markReportUserById);
+router.put(
+  '/:userId',
+  [
+    body('reason')
+      .optional()
+      .isString()
+      .isLength({ max: 500 })
+      .withMessage('reason must be at most 500 characters'),
+  ],
+  validate,
+  userController.markReportUserById
+);
 
 export default router;
