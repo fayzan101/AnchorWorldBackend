@@ -2,27 +2,27 @@ import { AppDataSource } from "../config/database";
 import { UserBlock } from "../entities/UserBlock.entity";
 
 export class BlockRepository {
-  private repository = AppDataSource.getRepository(UserBlock);
+  private repo = () => AppDataSource.getRepository(UserBlock);
 
   async create(blockerId: string, blockedId: string): Promise<UserBlock> {
-    const block = this.repository.create({
+    const block = this.repo().create({
       blocker_id: blockerId,
       blocked_id: blockedId,
     });
-    return this.repository.save(block);
+    return this.repo().save(block);
   }
 
   async findByPair(
     blockerId: string,
     blockedId: string
   ): Promise<UserBlock | null> {
-    return this.repository.findOne({
+    return this.repo().findOne({
       where: { blocker_id: blockerId, blocked_id: blockedId },
     });
   }
 
   async deleteByPair(blockerId: string, blockedId: string): Promise<boolean> {
-    const result = await this.repository.delete({
+    const result = await this.repo().delete({
       blocker_id: blockerId,
       blocked_id: blockedId,
     });
@@ -34,7 +34,7 @@ export class BlockRepository {
     page: number,
     limit: number
   ): Promise<{ items: UserBlock[]; total: number }> {
-    const [items, total] = await this.repository.findAndCount({
+    const [items, total] = await this.repo().findAndCount({
       where: { blocker_id: blockerId },
       relations: ["blocked"],
       order: { created_at: "DESC" },
@@ -48,7 +48,7 @@ export class BlockRepository {
    * IDs the viewer blocked + IDs that blocked the viewer (bidirectional).
    */
   async findBlockedPairIds(userId: string): Promise<string[]> {
-    const rows = await this.repository.find({
+    const rows = await this.repo().find({
       where: [{ blocker_id: userId }, { blocked_id: userId }],
     });
 
@@ -64,7 +64,7 @@ export class BlockRepository {
   }
 
   async isEitherBlocked(userId1: string, userId2: string): Promise<boolean> {
-    const count = await this.repository
+    const count = await this.repo()
       .createQueryBuilder("block")
       .where(
         "(block.blocker_id = :a AND block.blocked_id = :b) OR (block.blocker_id = :b AND block.blocked_id = :a)",
