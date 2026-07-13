@@ -1918,25 +1918,14 @@ components:
       type: string
       enum: [male, female, other]
 
-    SeekingRelation:
-      type: string
-      enum: [date, bff]
-
     FollowStatus:
       type: string
       enum: [pending, accepted]
-
-    RelationshipStatus:
-      type: string
-      enum: [none, request_sent, request_received, friends]
 
     NotificationType:
       type: string
       enum:
         - new_message
-        - friend_request
-        - friend_accept
-        - new_like
         - post_liked
         - post_commented
         - points_earned
@@ -2019,10 +2008,6 @@ components:
         name:
           type: string
 
-    HobbyItem:
-      allOf:
-        - $ref: "#/components/schemas/ReferenceItem"
-
     UpdateProfileRequest:
       type: object
       properties:
@@ -2041,7 +2026,6 @@ components:
           type: boolean
         conversation_style:
           type: string
-          description: Formerly love language in legacy app
         humor_type:
           type: string
         hobbies:
