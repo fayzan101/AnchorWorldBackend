@@ -51,7 +51,12 @@ jobs:
               printf '%s' "$SEED_HASH" > "$SEED_HASH_FILE"
             fi
 
-            pm2 restart anchor-backend --update-env
+            if pm2 describe anchor-backend >/dev/null 2>&1; then
+              pm2 restart anchor-backend --update-env
+            else
+              pm2 start dist/server.js --name anchor-backend
+              pm2 save
+            fi
 
             for i in $(seq 1 30); do
               if curl -fsS http://127.0.0.1:3000/health >/dev/null; then
