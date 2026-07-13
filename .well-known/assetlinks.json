@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.anchor.dating",
+      "sha256_cert_fingerprints": [
+        "E6:E3:1F:CC:AC:47:D7:43:4A:7E:13:37:47:EE:06:66:81:B1:99:6E:19:AE:AD:03:DF:26:40:75:34:61:A7:7C"
+      ]
+    }
+  }
+]

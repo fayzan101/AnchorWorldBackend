@@ -1,0 +1,67 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: >
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'master')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            APP_DIR="${{ secrets.DEPLOY_PATH }}"
+            if [ -z "$APP_DIR" ]; then APP_DIR="$HOME/repositories/anchor-backend"; fi
+            cd "$APP_DIR"
+            git fetch origin
+            git reset --hard origin/master
+            mkdir -p uploads/posts
+            chmod -R 755 uploads
+
+            LOCKFILE_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
+            INSTALL_HASH_FILE=".npm-ci.lockhash"
+            if [ ! -d node_modules ] || [ ! -f "$INSTALL_HASH_FILE" ] || [ "$LOCKFILE_HASH" != "$(cat "$INSTALL_HASH_FILE")" ]; then
+              npm ci --prefer-offline --no-audit --no-fund
+              printf '%s' "$LOCKFILE_HASH" > "$INSTALL_HASH_FILE"
+            fi
+
+            npm run build
+            npm run migrate:prod
+
+            SEED_HASH="$(sha256sum src/scripts/seed-circles.ts | awk '{print $1}')"
+            SEED_HASH_FILE=".seed-circles.hash"
+            if [ ! -f "$SEED_HASH_FILE" ] || [ "$SEED_HASH" != "$(cat "$SEED_HASH_FILE")" ]; then
+              npm run seed:circles
+              printf '%s' "$SEED_HASH" > "$SEED_HASH_FILE"
+            fi
+
+            pm2 restart anchor-backend --update-env
+
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:3000/health >/dev/null; then
+                curl -fsS http://127.0.0.1:3000/health
+                exit 0
+              fi
+
+              sleep 1
+            done
+
+            echo "Health check failed after waiting for the app to start" >&2
+            pm2 logs anchor-backend --lines 50 --nostream
+            exit 1

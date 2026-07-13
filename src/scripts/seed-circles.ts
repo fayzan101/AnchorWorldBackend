@@ -1,0 +1,80 @@
+import { AppDataSource, initializeDatabase } from "../config/database";
+import { CircleRepository } from "../repositories/circle.repository";
+
+const SEED_CIRCLES = [
+  {
+    name: "Fitness & Health",
+    slug: "fitness-health",
+    description:
+      "Share workouts, wellness tips, and healthy habits with people who love staying active.",
+    icon_url: null,
+  },
+  {
+    name: "Food & Cooking",
+    slug: "food-cooking",
+    description:
+      "Recipes, restaurant finds, and kitchen experiments — from quick meals to weekend feasts.",
+    icon_url: null,
+  },
+  {
+    name: "Books & Reading",
+    slug: "books-reading",
+    description:
+      "Discuss what you're reading, swap recommendations, and join book-club style conversations.",
+    icon_url: null,
+  },
+  {
+    name: "Travel",
+    slug: "travel",
+    description:
+      "Trip stories, travel tips, and destination inspiration from explorers near and far.",
+    icon_url: null,
+  },
+  {
+    name: "Faith & Values",
+    slug: "faith-values",
+    description:
+      "A respectful space to share beliefs, values, and meaningful conversations.",
+    icon_url: null,
+  },
+  {
+    name: "Music & Arts",
+    slug: "music-arts",
+    description:
+      "Creators and fans sharing music, art, performances, and creative projects.",
+    icon_url: null,
+  },
+  {
+    name: "Career & Growth",
+    slug: "career-growth",
+    description:
+      "Professional development, career advice, and personal growth with a supportive community.",
+    icon_url: null,
+  },
+];
+
+export async function seedCircles(): Promise<void> {
+  const circleRepository = new CircleRepository();
+
+  for (const circle of SEED_CIRCLES) {
+    await circleRepository.upsertBySlug({
+      ...circle,
+      is_featured: true,
+    });
+    console.log(`✓ Circle seeded: ${circle.name}`);
+  }
+}
+
+async function main(): Promise<void> {
+  await initializeDatabase();
+  await seedCircles();
+  await AppDataSource.destroy();
+  console.log("Circle seed complete.");
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("Circle seed failed:", error);
+    process.exit(1);
+  });
+}
