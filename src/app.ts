@@ -28,6 +28,7 @@ import discoverRoutes from "./routes/discover.routes";
 import videoCallRoutes from "./routes/video-call.routes";
 import adminRoutes from "./routes/admin.routes";
 import metricsRoutes from "./routes/metrics.routes";
+import locationRoutes from "./routes/location.routes";
 
 export function createApp(): Application {
   const app = express();
@@ -103,6 +104,7 @@ export function createApp(): Application {
   app.use(`${apiPrefix}/comments`, commentRoutes);
   app.use(`${apiPrefix}/onboarding`, onboardingRoutes);
   app.use(`${apiPrefix}/discover`, discoverRoutes);
+  app.use(`${apiPrefix}/locations`, locationRoutes);
   app.use(`${apiPrefix}/video-calls`, videoCallRoutes);
   app.use(`${apiPrefix}/admin`, adminRoutes);
 
