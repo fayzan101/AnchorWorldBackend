@@ -974,7 +974,10 @@ paths:
     get:
       tags: [Reference Data]
       summary: List cities for a country
-      description: Pass `country` as ISO code (PK) or full name (Pakistan). Select country first, then city.
+      description: >
+        Pass `country` as ISO code (PK) or full name (Pakistan).
+        Returns main cities for that country (all cities for small countries;
+        curated main set for large ones). Select country first, then city.
       security:
         - bearerAuth: []
       parameters:
