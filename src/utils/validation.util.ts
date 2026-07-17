@@ -201,21 +201,22 @@ export class ValidationUtil {
         .isBoolean()
         .withMessage("location_opt_in must be a boolean"),
       body("humor_type")
-        .optional()
         .trim()
+        .notEmpty()
+        .withMessage("Community tone is required")
         .isLength({ max: 255 }),
       body("conversation_style")
-        .optional()
         .trim()
+        .notEmpty()
+        .withMessage("Participation style is required")
         .isLength({ max: 255 }),
       body("interests")
-        .optional()
-        .isArray({ min: 1 })
-        .withMessage("interests must be a non-empty array"),
+        .isArray({ min: 2 })
+        .withMessage("Pick at least 2 topics"),
       body("hobbies")
         .optional()
-        .isArray({ min: 1 })
-        .withMessage("hobbies must be a non-empty array"),
+        .isArray({ min: 2 })
+        .withMessage("Pick at least 2 topics"),
       body("suggested_circle_ids")
         .isArray({ min: 2 })
         .withMessage("Join at least 2 circles"),

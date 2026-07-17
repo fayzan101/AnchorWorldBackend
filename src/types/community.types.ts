@@ -100,7 +100,9 @@ export interface CommunityOnboardingDto {
   bio?: string;
   interests?: string[];
   hobbies?: string[];
+  /** Community tone preference (legacy column name humor_type). */
   humor_type?: string;
+  /** How the member participates in circles (legacy column conversation_style). */
   conversation_style?: string;
   city?: string;
   country?: string;

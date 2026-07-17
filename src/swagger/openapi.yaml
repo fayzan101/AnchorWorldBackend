@@ -2120,24 +2120,27 @@ components:
 
     CommunityOnboardingRequest:
       type: object
-      required: [city, suggested_circle_ids]
+      required: [city, suggested_circle_ids, interests, conversation_style, humor_type]
       properties:
         bio:
           type: string
           maxLength: 1000
         interests:
           type: array
+          minItems: 2
           items:
             type: string
-          description: Hobby IDs or names
+          description: Topic / hobby IDs or names (min 2) — used for circle suggestions, not dating
         hobbies:
           type: array
           items:
             type: string
         humor_type:
           type: string
+          description: Community content tone (required) — e.g. Practical & informative
         conversation_style:
           type: string
+          description: How the member participates in circles (required) — not a dating vibe
         city:
           type: string
         country:

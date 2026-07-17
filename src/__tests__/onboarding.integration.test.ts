@@ -11,6 +11,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
   let accessToken: string;
   let circleIds: string[] = [];
   let hobbyId: string;
+  let hobbyId2: string;
   const uniqueEmail = `onboarding-test-${Date.now()}@example.com`;
 
   beforeAll(async () => {
@@ -37,12 +38,16 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .get("/api/hobbies")
       .set("Authorization", `Bearer ${accessToken}`);
 
-    if (hobbiesRes.body.data?.length > 0) {
+    const hobbyRepo = new HobbyRepository();
+    if (hobbiesRes.body.data?.length >= 2) {
       hobbyId = hobbiesRes.body.data[0].id;
+      hobbyId2 = hobbiesRes.body.data[1].id;
+    } else if (hobbiesRes.body.data?.length === 1) {
+      hobbyId = hobbiesRes.body.data[0].id;
+      hobbyId2 = (await hobbyRepo.create("Cooking")).id;
     } else {
-      const hobbyRepo = new HobbyRepository();
-      const hobby = await hobbyRepo.create("Hiking");
-      hobbyId = hobby.id;
+      hobbyId = (await hobbyRepo.create("Hiking")).id;
+      hobbyId2 = (await hobbyRepo.create("Cooking")).id;
     }
   });
 
@@ -79,9 +84,9 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
         city: "Austin",
         country: "USA",
         location_opt_in: true,
-        interests: [hobbyId],
-        conversation_style: "Deep Conversations",
-        humor_type: "Witty",
+        interests: [hobbyId, hobbyId2],
+        conversation_style: "Share posts and tips",
+        humor_type: "Practical and informative",
         suggested_circle_ids: circleIds,
       });
 

@@ -88,8 +88,16 @@ export class OnboardingService {
     this.rejectDeprecatedFields(body as unknown as Record<string, unknown>);
 
     const interestInput = body.interests ?? body.hobbies ?? [];
-    if (interestInput.length === 0) {
-      throw new AppError("At least one interest is required", 400);
+    if (interestInput.length < 2) {
+      throw new AppError("Pick at least 2 topics", 400);
+    }
+
+    if (!body.conversation_style?.trim()) {
+      throw new AppError("Participation style is required", 400);
+    }
+
+    if (!body.humor_type?.trim()) {
+      throw new AppError("Community tone is required", 400);
     }
 
     if (!body.city?.trim()) {

@@ -84,7 +84,7 @@ describe("OnboardingService", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it("requires at least one interest", async () => {
+  it("requires at least two topics", async () => {
     await expect(
       service.completeCommunityOnboarding(userId, {
         city: "Austin",
@@ -96,19 +96,20 @@ describe("OnboardingService", () => {
   it("completes onboarding and awards points once", async () => {
     const baseUser = createBaseUser();
     const hobby = { id: "hobby-1", name: "Hiking" } as Hobby;
+    const hobby2 = { id: "hobby-2", name: "Cooking" } as Hobby;
     const completedUser = {
       ...baseUser,
       city: "Austin",
       profile_completed: true,
       onboarding_completed_at: new Date(),
-      hobbies: [hobby],
+      hobbies: [hobby, hobby2],
     } as unknown as User;
 
     userRepository.findById
       .mockResolvedValueOnce(baseUser)
       .mockResolvedValueOnce(completedUser);
     userRepository.save.mockResolvedValue(completedUser);
-    hobbyRepository.findByIds.mockResolvedValue([hobby]);
+    hobbyRepository.findByIds.mockResolvedValue([hobby, hobby2]);
     circleService.joinCircle.mockResolvedValue({} as never);
     pointsService.awardPointsOnce.mockResolvedValue({
       awarded: PointAmounts[PointTypes.PROFILE_COMPLETE],
@@ -121,7 +122,9 @@ describe("OnboardingService", () => {
 
     const result = await service.completeCommunityOnboarding(userId, {
       city: "Austin",
-      interests: ["hobby-1"],
+      interests: ["hobby-1", "hobby-2"],
+      conversation_style: "Share posts and tips",
+      humor_type: "Practical and informative",
       suggested_circle_ids: ["circle-1", "circle-2"],
       location_opt_in: true,
     });
