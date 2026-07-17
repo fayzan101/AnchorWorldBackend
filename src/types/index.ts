@@ -47,17 +47,13 @@ export interface LoginDto {
 export interface UpdateProfileDto {
   full_name?: string;
   bio?: string;
-  location?: string;
   gender?: Gender;
-  seeking_relation?: string;
-  interested_in?: string;
-  height?: string;
-  have_kids?: string;
-  kids?: string;
-  date_you_reason?: string;
+  city?: string;
+  country?: string;
+  location_opt_in?: boolean;
+  conversation_style?: string;
+  humor_type?: string;
   hobbies?: string[];
-  relationship_goals?: string[];
-  partner_qualities?: string[];
 }
 
 export interface SendMessageDto {
@@ -75,7 +71,7 @@ export interface UserListQuery extends PaginationQuery {
   purpose?: "search";
 }
 
-// New: Enhanced user response with relationship status
+// Enhanced user response with relationship status (community)
 export interface UserWithRelationship {
   id: string;
   full_name: string;
@@ -83,19 +79,15 @@ export interface UserWithRelationship {
   gender: Gender;
   bio: string | null;
   profile_picture: string | null;
-  location: string | null;
+  city: string | null;
+  country: string | null;
   is_online: boolean;
   last_seen: Date | null;
-  total_likes: number;
   relationship_status: RelationshipStatus;
-  follow_request_id?: string; // ID to accept/reject request
-  interests: string | null;
-  height: string | null;
-  hobbies: string | null;
-  their_qualities: string | null;
-  looking_for: string | null;
-  seeking_relation: string | null;
-	interested_in: string | null;
+  follow_request_id?: string;
+  interests: string[];
+  conversation_style: string | null;
+  humor_type: string | null;
 }
 
 export interface ApiResponse<T = any> {

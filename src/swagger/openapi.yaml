@@ -2105,7 +2105,7 @@ components:
           items:
             type: string
             format: uuid
-          description: Hobby IDs — exposed as interests in responses
+          description: Topic IDs (stored as hobbies) — exposed as interests in responses
 
     ProfileLocationUpdate:
       type: object
