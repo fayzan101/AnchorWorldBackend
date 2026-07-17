@@ -419,25 +419,13 @@ export class NotificationService {
     });
   }
 
+  /** Intentionally no-op: joining a circle should not create an inbox notification. */
   async notifyCircleJoin(
-    userId: string,
-    circleName: string,
-    circleId: string
+    _userId: string,
+    _circleName: string,
+    _circleId: string
   ): Promise<boolean> {
-    await this.persistNotification(
-      userId,
-      "Welcome to the Circle",
-      `You joined ${circleName}`,
-      NotificationType.CIRCLE_JOIN,
-      { screen: "Circle", circleId }
-    );
-
-    return await this.sendToUser(userId, {
-      title: "Welcome to the Circle",
-      body: `You joined ${circleName}`,
-      type: NotificationType.CIRCLE_JOIN,
-      data: { screen: "Circle", circleId },
-    });
+    return false;
   }
 
   async updateFCMToken(userId: string, fcmToken: string): Promise<void> {

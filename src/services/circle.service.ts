@@ -2,7 +2,6 @@ import { AppDataSource } from "../config/database";
 import { CircleRepository } from "../repositories/circle.repository";
 import { PointsService } from "./points.service";
 import { PostService } from "./post.service";
-import { NotificationService } from "./notification.service";
 import { AppError } from "../middleware/error.middleware";
 import { Circle } from "../entities/Circle.entity";
 import {
@@ -16,18 +15,15 @@ export class CircleService {
   private circleRepository: CircleRepository;
   private pointsService: PointsService;
   private postService: PostService;
-  private notificationService: NotificationService;
 
   constructor(
     circleRepository?: CircleRepository,
     pointsService?: PointsService,
-    postService?: PostService,
-    notificationService?: NotificationService
+    postService?: PostService
   ) {
     this.circleRepository = circleRepository ?? new CircleRepository();
     this.pointsService = pointsService ?? new PointsService();
     this.postService = postService ?? new PostService();
-    this.notificationService = notificationService ?? new NotificationService();
   }
 
   async listCircles(userId: string): Promise<CircleListItem[]> {
@@ -35,7 +31,6 @@ export class CircleService {
       this.circleRepository.findAll(),
       this.circleRepository.getJoinedCircleIds(userId),
     ]);
-
     return circles.map((circle) =>
       this.toListItem(circle, joinedIds.has(circle.id))
     );
@@ -43,23 +38,28 @@ export class CircleService {
 
   async getFeaturedCircles(userId: string): Promise<CircleListItem[]> {
     const [circles, joinedIds] = await Promise.all([
-      this.circleRepository.findFeatured(5),
+      this.circleRepository.findFeatured(),
       this.circleRepository.getJoinedCircleIds(userId),
     ]);
-
     return circles.map((circle) =>
       this.toListItem(circle, joinedIds.has(circle.id))
     );
   }
 
-  async getCircleById(circleId: string, userId: string): Promise<CircleListItem> {
+  async getCircleById(
+    circleId: string,
+    userId: string
+  ): Promise<CircleListItem> {
     const circle = await this.circleRepository.findById(circleId);
     if (!circle) {
       throw new AppError("Circle not found", 404);
     }
-
     const isJoined = await this.circleRepository.isMember(circleId, userId);
     return this.toListItem(circle, isJoined);
+  }
+
+  async getUserCircleSummaries(userId: string): Promise<CircleSummary[]> {
+    return this.circleRepository.getUserCircles(userId);
   }
 
   async joinCircle(
@@ -94,9 +94,7 @@ export class CircleService {
 
     const updatedCircle = await this.circleRepository.findById(circleId);
 
-    this.notificationService
-      .notifyCircleJoin(userId, circle.name, circleId)
-      .catch(console.error);
+    // Joining confirms in-app (points toast / joined state) — no inbox notification.
 
     return {
       circle: this.toListItem(updatedCircle!, true),
@@ -133,31 +131,27 @@ export class CircleService {
       limit
     );
 
-    const members: CircleMemberItem[] = items.map((membership) => ({
-      id: membership.user.id,
-      full_name: membership.user.full_name,
-      profile_picture: membership.user.profile_picture,
-      role: membership.role,
-      joined_at: membership.joined_at,
+    const mapped: CircleMemberItem[] = items.map((m) => ({
+      id: m.user?.id ?? m.user_id,
+      full_name: m.user?.full_name ?? "Member",
+      profile_picture: m.user?.profile_picture ?? null,
+      role: m.role,
+      joined_at: m.joined_at,
     }));
 
     return {
-      items: members,
+      items: mapped,
       pagination: {
         page,
         limit,
         total,
-        total_pages: Math.ceil(total / limit),
+        total_pages: Math.ceil(total / limit) || 0,
       },
     };
   }
 
   async getCirclePosts(circleId: string, userId: string, page = 1, limit = 20) {
     return this.postService.getCirclePosts(circleId, userId, page, limit);
-  }
-
-  async getUserCircleSummaries(userId: string): Promise<CircleSummary[]> {
-    return this.circleRepository.getUserCircles(userId);
   }
 
   private toListItem(circle: Circle, isJoined: boolean): CircleListItem {
