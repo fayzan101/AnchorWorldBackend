@@ -61,12 +61,19 @@ export interface PublicUserProfile {
   last_seen?: Date | null;
 }
 
+export interface HobbyRef {
+  id: string;
+  name: string;
+}
+
 export interface OwnProfile extends PublicUserProfile {
   email: string;
   date_of_birth: Date;
   profile_completed: boolean;
   onboarding_completed_at: Date | null;
   intro_video_url: string | null;
+  /** Topic IDs for edit-profile rehydration */
+  hobbies: HobbyRef[];
 }
 
 export interface CommunityUserListItem {

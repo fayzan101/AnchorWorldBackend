@@ -50,6 +50,17 @@ export class FollowRepository {
     });
   }
 
+  async getSentRequests(userId: string): Promise<Follow[]> {
+    return await this.repository.find({
+      where: {
+        follower_id: userId,
+        status: FollowStatus.PENDING,
+      },
+      relations: ['following'],
+      order: { created_at: 'DESC' },
+    });
+  }
+
   async getMatches(userId: string): Promise<any[]> {
     // Get users where both have followed each other with accepted status
     const query = `

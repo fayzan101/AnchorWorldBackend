@@ -81,6 +81,8 @@ describe("user-response.mapper", () => {
     expect(profile.post_count).toBe(2);
     expect(profile.city).toBe("Lahore");
     expect(profile.location_opt_in).toBe(true);
+    expect(profile.hobbies).toEqual([{ id: "h1", name: "Hiking" }]);
+    expect(profile.interests).toEqual(["Hiking"]);
   });
 
   it("maps community user list item without dating discovery fields", () => {

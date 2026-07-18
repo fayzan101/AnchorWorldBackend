@@ -56,6 +56,16 @@ export class FollowController {
     }
   };
 
+  getSentRequests = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const requests = await this.followService.getSentRequests(userId);
+      ResponseUtil.success(res, { requests });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getConnections = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;

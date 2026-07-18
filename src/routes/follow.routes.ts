@@ -16,6 +16,13 @@ router.use(authenticateToken);
 router.get('/pending', followController.getPendingRequests);
 
 /**
+ * @route   GET /api/follows/sent
+ * @desc    Get outgoing pending follow requests
+ * @access  Private
+ */
+router.get('/sent', followController.getSentRequests);
+
+/**
  * @route   GET /api/follows/connections
  * @desc    Get mutual connections
  * @access  Private

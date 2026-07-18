@@ -188,6 +188,21 @@ export class FollowService {
     }));
   }
 
+  async getSentRequests(userId: string) {
+    const follows = await this.followRepository.getSentRequests(userId);
+
+    return follows.map((follow) => ({
+      id: follow.id,
+      following: {
+        id: follow.following.id,
+        full_name: follow.following.full_name,
+        profile_picture: follow.following.profile_picture,
+        bio: follow.following.bio,
+      },
+      created_at: follow.created_at,
+    }));
+  }
+
   async getConnections(userId: string) {
     const connections = await this.followRepository.getMatches(userId);
 

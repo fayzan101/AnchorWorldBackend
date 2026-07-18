@@ -101,6 +101,7 @@ export function toOwnProfile(
     profile_completed: Boolean(user.profile_completed),
     onboarding_completed_at: user.onboarding_completed_at ?? null,
     intro_video_url: user.intro_video_url ?? null,
+    hobbies: (user.hobbies ?? []).map((h) => ({ id: h.id, name: h.name })),
   };
 }
 
