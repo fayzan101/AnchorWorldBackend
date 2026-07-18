@@ -29,6 +29,8 @@ import { PostsTables1719000000004 } from "../migrations/1719000000004-PostsTable
 import { VideoCallsTable1719000000005 } from "../migrations/1719000000005-VideoCallsTable";
 import { NotificationTypesAndData1719000000006 } from "../migrations/1719000000006-NotificationTypesAndData";
 import { BlocksAndModerationTables1719000000007 } from "../migrations/1719000000007-BlocksAndModerationTables";
+import { NotificationReadStatus1719000000008 } from "../migrations/1719000000008-NotificationReadStatus";
+import { PremiumSubscription1719000000009 } from "../migrations/1719000000009-PremiumSubscription";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -70,6 +72,8 @@ export const AppDataSource = new DataSource({
     VideoCallsTable1719000000005,
     NotificationTypesAndData1719000000006,
     BlocksAndModerationTables1719000000007,
+    NotificationReadStatus1719000000008,
+    PremiumSubscription1719000000009,
   ],
   subscribers: [],
   charset: "utf8mb4",
