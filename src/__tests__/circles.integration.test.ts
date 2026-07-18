@@ -63,7 +63,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(joinRes.status).toBe(201);
-    expect(joinRes.body.data.points_awarded).toBe(30);
+    expect(joinRes.body.data.points_awarded).toBe(5);
     expect(joinRes.body.data.circle.is_joined).toBe(true);
 
     const balanceRes = await request(app)

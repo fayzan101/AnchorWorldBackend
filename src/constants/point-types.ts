@@ -19,17 +19,19 @@ export const PointTypes = {
 export type PointType = (typeof PointTypes)[keyof typeof PointTypes];
 
 export const PointAmounts: Record<string, number> = {
-  [PointTypes.PROFILE_COMPLETE]: 100,
-  [PointTypes.FIRST_POST]: 150,
-  [PointTypes.POST_CREATED]: 25,
-  [PointTypes.POST_LIKED_RECEIVED]: 5,
-  [PointTypes.COMMENT_CREATED]: 15,
-  [PointTypes.COMMENT_RECEIVED]: 10,
-  [PointTypes.CONNECTION_MADE]: 50,
-  [PointTypes.CIRCLE_JOINED]: 30,
-  [PointTypes.CIRCLE_POST]: 40,
-  [PointTypes.DAILY_LOGIN]: 10,
-  [PointTypes.VIDEO_INTRO_COMPLETED]: 100,
-  [PointTypes.REFERRAL_REFERRER]: 100,
-  [PointTypes.REFERRAL_REFEREE]: 50,
+  // One-time / rare
+  [PointTypes.PROFILE_COMPLETE]: 20,
+  [PointTypes.FIRST_POST]: 25,
+  [PointTypes.REFERRAL_REFERRER]: 25,
+  [PointTypes.REFERRAL_REFEREE]: 15,
+  [PointTypes.VIDEO_INTRO_COMPLETED]: 15,
+  // Repeatable — kept low to discourage spam farming
+  [PointTypes.POST_CREATED]: 5,
+  [PointTypes.CIRCLE_POST]: 7,
+  [PointTypes.CIRCLE_JOINED]: 5,
+  [PointTypes.CONNECTION_MADE]: 10,
+  [PointTypes.COMMENT_CREATED]: 1,
+  [PointTypes.COMMENT_RECEIVED]: 1,
+  [PointTypes.POST_LIKED_RECEIVED]: 1,
+  [PointTypes.DAILY_LOGIN]: 2,
 };

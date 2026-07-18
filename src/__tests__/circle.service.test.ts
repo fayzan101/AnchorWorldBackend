@@ -90,7 +90,7 @@ describe("CircleService", () => {
       "circle-1",
       "Joined Fitness & Health"
     );
-    expect(result.points_awarded).toBe(30);
+    expect(result.points_awarded).toBe(5);
     expect(result.circle.is_joined).toBe(true);
   });
 

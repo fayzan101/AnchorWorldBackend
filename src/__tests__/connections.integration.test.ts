@@ -94,7 +94,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
     expect(connectionsRes.body.data.connections[0].id).toBe(userBId);
   });
 
-  it("awards +50 connection points to both users once", async () => {
+  it("awards +10 connection points to both users once", async () => {
     const balanceA = await request(app)
       .get("/api/points/balance")
       .set("Authorization", `Bearer ${tokenA}`);
@@ -112,7 +112,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       (tx: { type: string }) => tx.type === "connection_made"
     );
     expect(connectionTx.length).toBeGreaterThanOrEqual(1);
-    expect(connectionTx[0].amount).toBe(50);
+    expect(connectionTx[0].amount).toBe(10);
   });
 
   it("includes connection_status on user profile", async () => {
