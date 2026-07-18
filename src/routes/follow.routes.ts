@@ -46,8 +46,6 @@ router.get(
  * @access  Private
  */
 router.post('/:userId', followController.sendFollowRequest);
-
-router.post('/:userId', followController.sendFollowRequest);
 router.put('/:followId/accept', followController.acceptFollowRequest);
 router.delete('/:followId', followController.removeFollow);
 
