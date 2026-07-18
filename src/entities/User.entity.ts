@@ -7,7 +7,6 @@ import {
   OneToMany,
   ManyToMany,
   JoinTable,
-  IntegerType
 } from "typeorm";
 import { Gender, SeekingRelation } from "../types";
 import { Follow } from "./Follow.entity";
@@ -137,8 +136,8 @@ export class User {
   @Column({ type: "text", nullable: true })
   bio: string | null;
 
-  @Column({ type: "int",  default: 0 })
-  report_count: IntegerType;
+  @Column({ type: "int", default: 0 })
+  report_count: number;
 
   @Column({ type: "varchar", length: 255, nullable: true, select: false })
   reset_token: string | null;
