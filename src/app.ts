@@ -20,6 +20,7 @@ import hobbyRoutes from "./routes/hobby.routes";
 import partnerQualityRoutes from "./routes/partnerQuality.routes";
 import relationshipGoalRoutes from "./routes/relationshipGoal.routes";
 import pointsRoutes from "./routes/points.routes";
+import premiumRoutes from "./routes/premium.routes";
 import circleRoutes from "./routes/circle.routes";
 import postRoutes from "./routes/post.routes";
 import commentRoutes from "./routes/comment.routes";
@@ -99,6 +100,7 @@ export function createApp(): Application {
   app.use(`${apiPrefix}/relationship-goals`, relationshipGoalRoutes);
   app.use(`${apiPrefix}/partner-qualities`, partnerQualityRoutes);
   app.use(`${apiPrefix}/points`, pointsRoutes);
+  app.use(`${apiPrefix}/premium`, premiumRoutes);
   app.use(`${apiPrefix}/circles`, circleRoutes);
   app.use(`${apiPrefix}/posts`, postRoutes);
   app.use(`${apiPrefix}/comments`, commentRoutes);

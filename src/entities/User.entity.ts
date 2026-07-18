@@ -154,6 +154,12 @@ export class User {
   @Column({ type: "boolean", default: true })
   notifications_enabled: boolean;
 
+  @Column({ type: "boolean", default: false })
+  is_premium: boolean;
+
+  @Column({ type: "timestamp", nullable: true })
+  premium_until: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 

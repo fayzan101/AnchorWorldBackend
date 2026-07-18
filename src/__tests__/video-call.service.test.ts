@@ -3,6 +3,7 @@ import { VideoCallRepository } from "../repositories/video-call.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { PointsService } from "../services/points.service";
+import { PremiumService } from "../services/premium.service";
 import { AgoraService } from "../services/agora.service";
 import { NotificationService } from "../services/notification.service";
 import { AppError } from "../middleware/error.middleware";
@@ -25,9 +26,16 @@ describe("VideoCallService", () => {
   let followRepository: jest.Mocked<FollowRepository>;
   let userRepository: jest.Mocked<UserRepository>;
   let pointsService: jest.Mocked<PointsService>;
+  let premiumService: jest.Mocked<PremiumService>;
   let agoraService: jest.Mocked<AgoraService>;
   let notificationService: jest.Mocked<NotificationService>;
   let service: VideoCallService;
+
+  const premiumUser = {
+    id: callerId,
+    is_premium: true,
+    premium_until: new Date(Date.now() + 86_400_000),
+  } as User;
 
   const mockCall = (overrides: Partial<VideoCall> = {}) =>
     ({
@@ -36,7 +44,7 @@ describe("VideoCallService", () => {
       callee_id: calleeId,
       status: VideoCallStatus.PENDING,
       duration_minutes: 5,
-      points_spent: 500,
+      points_spent: 0,
       channel_name: "call-uuid-123",
       started_at: null,
       ended_at: null,
@@ -69,6 +77,11 @@ describe("VideoCallService", () => {
       awardPointsOncePerReference: jest.fn(),
     } as unknown as jest.Mocked<PointsService>;
 
+    premiumService = {
+      ensurePremiumActive: jest.fn().mockResolvedValue(premiumUser),
+      isPremiumActive: jest.fn().mockReturnValue(true),
+    } as unknown as jest.Mocked<PremiumService>;
+
     agoraService = {
       generateRtcToken: jest.fn(),
     } as unknown as jest.Mocked<AgoraService>;
@@ -85,11 +98,12 @@ describe("VideoCallService", () => {
       userRepository,
       pointsService,
       agoraService,
-      notificationService
+      notificationService,
+      premiumService
     );
   });
 
-  it("requests intro and spends points", async () => {
+  it("requests intro with Premium and does not spend points", async () => {
     userRepository.findById
       .mockResolvedValueOnce({ id: calleeId } as User)
       .mockResolvedValueOnce({ id: callerId, full_name: "Caller" } as User);
@@ -103,13 +117,10 @@ describe("VideoCallService", () => {
       duration_minutes: 5,
     });
 
-    expect(result.points_spent).toBe(500);
-    expect(pointsService.spendPoints).toHaveBeenCalledWith(
-      callerId,
-      500,
-      PointTypes.VIDEO_INTRO_SPENT,
-      "call-uuid-123",
-      "Video intro request (5 min)"
+    expect(result.points_spent).toBe(0);
+    expect(pointsService.spendPoints).not.toHaveBeenCalled();
+    expect(videoCallRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ points_spent: 0 })
     );
     expect(notificationService.notifyVideoIntroRequest).toHaveBeenCalledWith(
       calleeId,
@@ -117,6 +128,22 @@ describe("VideoCallService", () => {
       "Caller",
       "call-uuid-123"
     );
+  });
+
+  it("rejects request when caller is not Premium", async () => {
+    premiumService.ensurePremiumActive.mockResolvedValue({
+      id: callerId,
+      is_premium: false,
+      premium_until: null,
+    } as User);
+    premiumService.isPremiumActive.mockReturnValue(false);
+
+    await expect(
+      service.requestIntro(callerId, {
+        callee_id: calleeId,
+        duration_minutes: 5,
+      })
+    ).rejects.toMatchObject({ statusCode: 403 });
   });
 
   it("rejects request when not connected", async () => {
@@ -131,7 +158,7 @@ describe("VideoCallService", () => {
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 
-  it("rejects intro and refunds caller", async () => {
+  it("rejects intro and skips refund when no points were spent", async () => {
     videoCallRepository.findById.mockResolvedValue(mockCall());
     videoCallRepository.updateStatus.mockResolvedValue(
       mockCall({ status: VideoCallStatus.REJECTED })
@@ -140,16 +167,27 @@ describe("VideoCallService", () => {
     const result = await service.rejectIntro("call-uuid-123", calleeId);
 
     expect(result.status).toBe(VideoCallStatus.REJECTED);
+    expect(pointsService.awardPoints).not.toHaveBeenCalled();
+    expect(notificationService.notifyVideoCallRejected).toHaveBeenCalledWith(
+      callerId,
+      "call-uuid-123"
+    );
+  });
+
+  it("refunds legacy intros that spent points", async () => {
+    videoCallRepository.findById.mockResolvedValue(mockCall({ points_spent: 500 }));
+    videoCallRepository.updateStatus.mockResolvedValue(
+      mockCall({ status: VideoCallStatus.REJECTED, points_spent: 500 })
+    );
+
+    await service.rejectIntro("call-uuid-123", calleeId);
+
     expect(pointsService.awardPoints).toHaveBeenCalledWith(
       callerId,
       500,
       PointTypes.VIDEO_INTRO_REFUND,
       "call-uuid-123",
       "Video intro refunded"
-    );
-    expect(notificationService.notifyVideoCallRejected).toHaveBeenCalledWith(
-      callerId,
-      "call-uuid-123"
     );
   });
 

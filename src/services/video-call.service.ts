@@ -2,6 +2,7 @@ import { VideoCallRepository } from "../repositories/video-call.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { PointsService } from "./points.service";
+import { PremiumService } from "./premium.service";
 import { AgoraService } from "./agora.service";
 import { NotificationService } from "./notification.service";
 import { AppError } from "../middleware/error.middleware";
@@ -15,11 +16,6 @@ import {
   VideoCallTokenResponse,
 } from "../types/video-call.types";
 
-const INTRO_COSTS: Record<5 | 10, number> = {
-  5: 500,
-  10: 800,
-};
-
 const PENDING_TTL_MS = 60_000;
 const MAX_REQUESTS_PER_DAY = 2;
 const MIN_COMPLETION_SECONDS = 30;
@@ -29,6 +25,7 @@ export class VideoCallService {
   private followRepository: FollowRepository;
   private userRepository: UserRepository;
   private pointsService: PointsService;
+  private premiumService: PremiumService;
   private agoraService: AgoraService;
   private notificationService: NotificationService;
   private expiryTimers = new Map<string, NodeJS.Timeout>();
@@ -39,12 +36,14 @@ export class VideoCallService {
     userRepository?: UserRepository,
     pointsService?: PointsService,
     agoraService?: AgoraService,
-    notificationService?: NotificationService
+    notificationService?: NotificationService,
+    premiumService?: PremiumService
   ) {
     this.videoCallRepository = videoCallRepository ?? new VideoCallRepository();
     this.followRepository = followRepository ?? new FollowRepository();
     this.userRepository = userRepository ?? new UserRepository();
     this.pointsService = pointsService ?? new PointsService();
+    this.premiumService = premiumService ?? new PremiumService();
     this.agoraService = agoraService ?? new AgoraService();
     this.notificationService = notificationService ?? new NotificationService();
   }
@@ -61,6 +60,14 @@ export class VideoCallService {
 
     if (durationMinutes !== 5 && durationMinutes !== 10) {
       throw new AppError("duration_minutes must be 5 or 10", 400);
+    }
+
+    const callerUser = await this.premiumService.ensurePremiumActive(callerId);
+    if (!this.premiumService.isPremiumActive(callerUser)) {
+      throw new AppError(
+        "Premium subscription required for guided video intros",
+        403
+      );
     }
 
     const callee = await this.userRepository.findById(calleeId);
@@ -86,7 +93,6 @@ export class VideoCallService {
       throw new AppError("Daily video intro request limit reached", 429);
     }
 
-    const pointsCost = INTRO_COSTS[durationMinutes];
     const expiresAt = new Date(Date.now() + PENDING_TTL_MS);
     const callId = uuidv4();
 
@@ -96,23 +102,10 @@ export class VideoCallService {
       callee_id: calleeId,
       status: VideoCallStatus.PENDING,
       duration_minutes: durationMinutes,
-      points_spent: pointsCost,
+      points_spent: 0,
       channel_name: callId,
       expires_at: expiresAt,
     });
-
-    try {
-      await this.pointsService.spendPoints(
-        callerId,
-        pointsCost,
-        PointTypes.VIDEO_INTRO_SPENT,
-        call.id,
-        `Video intro request (${durationMinutes} min)`
-      );
-    } catch (error) {
-      await this.videoCallRepository.updateStatus(call.id, VideoCallStatus.CANCELLED);
-      throw error;
-    }
 
     this.scheduleExpiry(call.id, PENDING_TTL_MS);
 
@@ -323,6 +316,8 @@ export class VideoCallService {
   }
 
   private async refundCaller(call: VideoCall): Promise<void> {
+    // Legacy calls may have spent points; new Premium intros spend 0.
+    if (!call.points_spent || call.points_spent <= 0) return;
     await this.pointsService.awardPoints(
       call.caller_id,
       call.points_spent,
