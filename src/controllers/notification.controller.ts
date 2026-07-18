@@ -99,7 +99,50 @@ export class NotificationController {
     try {
       const userId = req.user!.id;
       const list = await this.notificationService.getNotifications(userId);
-      ResponseUtil.success(res, list, "Notification list");
+      ResponseUtil.success(res, { items: list }, "Notification list");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getUnreadCount = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const count = await this.notificationService.getUnreadCount(userId);
+      ResponseUtil.success(res, { count });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  markAsRead = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const notification = await this.notificationService.markAsRead(id, userId);
+      ResponseUtil.success(res, notification, "Notification marked as read");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  markAllAsRead = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const result = await this.notificationService.markAllAsRead(userId);
+      ResponseUtil.success(res, result, "All notifications marked as read");
     } catch (error) {
       next(error);
     }

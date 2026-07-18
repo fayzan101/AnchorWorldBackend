@@ -162,8 +162,8 @@ export class ValidationUtil {
     return [
       body("content")
         .trim()
-        .isLength({ min: 10, max: 5000 })
-        .withMessage("Post content must be between 10 and 5000 characters"),
+        .isLength({ min: 1, max: 5000 })
+        .withMessage("Post content must be between 1 and 5000 characters"),
       body("circle_id")
         .optional()
         .isUUID()

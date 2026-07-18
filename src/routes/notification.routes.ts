@@ -30,8 +30,29 @@ router.delete("/fcm-token", notificationController.removeFCMToken);
 router.put("/toggle", notificationController.toggleNotifications);
 
 /**
+ * @route   GET /api/notifications/unread-count
+ * @desc    Unread notification count
+ * @access  Private
+ */
+router.get("/unread-count", notificationController.getUnreadCount);
+
+/**
+ * @route   PUT /api/notifications/read-all
+ * @desc    Mark all notifications as read
+ * @access  Private
+ */
+router.put("/read-all", notificationController.markAllAsRead);
+
+/**
+ * @route   PUT /api/notifications/:id/read
+ * @desc    Mark one notification as read
+ * @access  Private
+ */
+router.put("/:id/read", notificationController.markAsRead);
+
+/**
  * @route   POST /api/notifications
- * @desc    Send test notification (for development)
+ * @desc    List notifications
  * @access  Private
  */
 router.post("/", notificationController.findNotification);

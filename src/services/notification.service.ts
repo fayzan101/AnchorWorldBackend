@@ -12,6 +12,7 @@ import {
   emitVideoCallAccepted,
   emitVideoCallRequest,
 } from "./socket-event.service";
+import { AppError } from "../middleware/error.middleware";
 import admin from "firebase-admin";
 
 export { NotificationType } from "../constants/notification-types";
@@ -30,6 +31,7 @@ export interface NotificationListItem {
   body: string;
   type: NotificationType;
   data: Record<string, string> | null;
+  is_read: boolean;
   created_at: Date;
 }
 
@@ -453,6 +455,26 @@ export class NotificationService {
     return notifications.map((notification) => this.formatNotification(notification));
   }
 
+  async getUnreadCount(userId: string): Promise<number> {
+    return this.notificationRepository.countUnread(userId);
+  }
+
+  async markAsRead(notificationId: string, userId: string) {
+    const updated = await this.notificationRepository.markAsRead(
+      notificationId,
+      userId
+    );
+    if (!updated) {
+      throw new AppError("Notification not found", 404);
+    }
+    return this.formatNotification(updated);
+  }
+
+  async markAllAsRead(userId: string) {
+    const updated = await this.notificationRepository.markAllAsRead(userId);
+    return { updated };
+  }
+
   private formatNotification(notification: Notification): NotificationListItem {
     return {
       id: notification.id,
@@ -460,6 +482,7 @@ export class NotificationService {
       body: notification.body,
       type: notification.type,
       data: notification.data ?? null,
+      is_read: Boolean(notification.is_read),
       created_at: notification.created_at,
     };
   }

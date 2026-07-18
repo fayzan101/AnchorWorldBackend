@@ -42,6 +42,9 @@ export class Notification {
   @Column({ type: "json", nullable: true })
   data: Record<string, string> | null;
 
+  @Column({ type: "boolean", default: false })
+  is_read: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

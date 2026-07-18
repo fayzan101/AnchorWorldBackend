@@ -83,12 +83,10 @@ export class MessageRepository {
   }
 
   async getConversations(userId: string): Promise<any[]> {
+    // Latest message per peer by created_at (not MAX(id) — UUIDs are not time-ordered).
     const query = `
       SELECT 
-        CASE 
-          WHEN m.sender_id = ? THEN m.receiver_id 
-          ELSE m.sender_id 
-        END as user_id,
+        latest.peer_id as user_id,
         u.full_name,
         u.profile_picture,
         u.is_online,
@@ -100,25 +98,33 @@ export class MessageRepository {
         (
           SELECT COUNT(*) 
           FROM messages 
-          WHERE receiver_id = ? 
-            AND sender_id = user_id 
+          WHERE receiver_id = ?
+            AND sender_id = latest.peer_id 
             AND is_read = false
         ) as unread_count
-      FROM messages m
-      INNER JOIN users u ON u.id = CASE 
-        WHEN m.sender_id = ? THEN m.receiver_id 
-        ELSE m.sender_id 
-      END
-      WHERE m.id IN (
-        SELECT MAX(id)
-        FROM messages
-        WHERE sender_id = ? OR receiver_id = ?
-        GROUP BY 
+      FROM (
+        SELECT 
           CASE 
             WHEN sender_id = ? THEN receiver_id 
             ELSE sender_id 
-          END
+          END as peer_id,
+          MAX(created_at) as max_time
+        FROM messages
+        WHERE sender_id = ? OR receiver_id = ?
+        GROUP BY peer_id
+      ) latest
+      INNER JOIN messages m ON m.id = (
+        SELECT m2.id
+        FROM messages m2
+        WHERE m2.created_at = latest.max_time
+          AND (
+            (m2.sender_id = ? AND m2.receiver_id = latest.peer_id)
+            OR (m2.receiver_id = ? AND m2.sender_id = latest.peer_id)
+          )
+        ORDER BY m2.created_at DESC, m2.id DESC
+        LIMIT 1
       )
+      INNER JOIN users u ON u.id = latest.peer_id
       ORDER BY m.created_at DESC
     `;
 

@@ -192,8 +192,8 @@ export class PostService {
     media?: { url: string; type: PostMediaType }
   ): Promise<PostResponse> {
     const content = data.content?.trim();
-    if (!content || content.length < 10) {
-      throw new AppError("Post content must be at least 10 characters", 400);
+    if (!content || content.length < 1) {
+      throw new AppError("Post content is required", 400);
     }
 
     const user = await this.userRepository.findById(userId);
