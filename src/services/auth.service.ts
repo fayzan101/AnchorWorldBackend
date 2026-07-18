@@ -46,7 +46,10 @@ export class AuthService {
     // Generate personal referral code
     try {
       await this.referralService.ensureReferralCode(user.id);
-    } catch (_) {}
+    } catch (error) {
+      // Non-fatal: user can still register; code can be generated later via GET /referrals/me
+      console.error("Failed to generate referral code on register:", error);
+    }
 
     // Apply invite code if provided
     if (data.referral_code?.trim()) {
