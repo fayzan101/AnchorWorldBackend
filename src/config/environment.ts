@@ -46,7 +46,7 @@ export const config = {
     corsOrigin: process.env.SOCKET_CORS_ORIGIN || "http://localhost:3001",
   },
   frontend: {
-    url: process.env.FRONTEND_URL || "http://localhost:3001",
+    url: process.env.FRONTEND_URL || "https://app.anchorworld.org",
   },
   firebase: {
     serviceAccountPath:
@@ -56,6 +56,11 @@ export const config = {
   agora: {
     appId: process.env.AGORA_APP_ID || "",
     appCertificate: process.env.AGORA_APP_CERTIFICATE || "",
+  },
+  revenueCat: {
+    apiKey: process.env.REVENUECAT_API_KEY || "",
+    webhookSecret: process.env.REVENUECAT_WEBHOOK_SECRET || "",
+    entitlementId: process.env.REVENUECAT_ENTITLEMENT_ID || "premium",
   },
   admin: {
     userIds: (process.env.ADMIN_USER_IDS || "")

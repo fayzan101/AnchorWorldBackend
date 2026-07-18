@@ -37,6 +37,7 @@ export interface RegisterDto {
   full_name: string;
   date_of_birth: string;
   gender: Gender;
+  referral_code?: string;
 }
 
 export interface LoginDto {

@@ -21,6 +21,7 @@ import { VideoCall } from "../entities/VideoCall.entity";
 import { UserBlock } from "../entities/UserBlock.entity";
 import { ContentReport } from "../entities/ContentReport.entity";
 import { ModerationAction } from "../entities/ModerationAction.entity";
+import { Referral } from "../entities/Referral.entity";
 import { CommunityUserFields1719000000001 } from "../migrations/1719000000001-CommunityUserFields";
 import { InitialSchema1719000000000 } from "../migrations/1719000000000-InitialSchema";
 import { PointsTables1719000000002 } from "../migrations/1719000000002-PointsTables";
@@ -31,6 +32,8 @@ import { NotificationTypesAndData1719000000006 } from "../migrations/17190000000
 import { BlocksAndModerationTables1719000000007 } from "../migrations/1719000000007-BlocksAndModerationTables";
 import { NotificationReadStatus1719000000008 } from "../migrations/1719000000008-NotificationReadStatus";
 import { PremiumSubscription1719000000009 } from "../migrations/1719000000009-PremiumSubscription";
+import { PremiumProductId1719000000010 } from "../migrations/1719000000010-PremiumProductId";
+import { Referrals1719000000011 } from "../migrations/1719000000011-Referrals";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -62,6 +65,7 @@ export const AppDataSource = new DataSource({
     UserBlock,
     ContentReport,
     ModerationAction,
+    Referral,
   ],
   migrations: [
     InitialSchema1719000000000,
@@ -74,6 +78,8 @@ export const AppDataSource = new DataSource({
     BlocksAndModerationTables1719000000007,
     NotificationReadStatus1719000000008,
     PremiumSubscription1719000000009,
+    PremiumProductId1719000000010,
+    Referrals1719000000011,
   ],
   subscribers: [],
   charset: "utf8mb4",

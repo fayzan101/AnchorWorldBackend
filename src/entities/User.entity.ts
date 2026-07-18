@@ -160,6 +160,15 @@ export class User {
   @Column({ type: "timestamp", nullable: true })
   premium_until: Date | null;
 
+  @Column({ type: "varchar", length: 128, nullable: true })
+  premium_product_id: string | null;
+
+  @Column({ type: "varchar", length: 16, nullable: true, unique: true })
+  referral_code: string | null;
+
+  @Column({ type: "varchar", length: 36, nullable: true })
+  referred_by_user_id: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

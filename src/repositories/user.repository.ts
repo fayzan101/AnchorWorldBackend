@@ -35,6 +35,12 @@ export class UserRepository {
     return await this.repository.findOne({ where: { email } });
   }
 
+  async findByReferralCode(code: string): Promise<User | null> {
+    return await this.repository.findOne({
+      where: { referral_code: code.toUpperCase() },
+    });
+  }
+
   async findByEmailWithPassword(email: string): Promise<User | null> {
     return await this.repository
       .createQueryBuilder("user")

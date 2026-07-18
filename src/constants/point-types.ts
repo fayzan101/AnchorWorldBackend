@@ -12,6 +12,8 @@ export const PointTypes = {
   VIDEO_INTRO_COMPLETED: "video_intro_completed",
   VIDEO_INTRO_SPENT: "video_intro_spent",
   VIDEO_INTRO_REFUND: "video_intro_refund",
+  REFERRAL_REFERRER: "referral_referrer",
+  REFERRAL_REFEREE: "referral_referee",
 } as const;
 
 export type PointType = (typeof PointTypes)[keyof typeof PointTypes];
@@ -28,4 +30,6 @@ export const PointAmounts: Record<string, number> = {
   [PointTypes.CIRCLE_POST]: 40,
   [PointTypes.DAILY_LOGIN]: 10,
   [PointTypes.VIDEO_INTRO_COMPLETED]: 100,
+  [PointTypes.REFERRAL_REFERRER]: 100,
+  [PointTypes.REFERRAL_REFEREE]: 50,
 };

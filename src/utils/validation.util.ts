@@ -29,6 +29,11 @@ export class ValidationUtil {
       body("gender")
         .isIn(Object.values(Gender))
         .withMessage("Invalid gender value"),
+      body("referral_code")
+        .optional({ nullable: true, checkFalsy: true })
+        .isString()
+        .isLength({ min: 4, max: 16 })
+        .withMessage("Invalid referral code"),
     ];
   }
 

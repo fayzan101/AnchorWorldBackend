@@ -21,6 +21,7 @@ import partnerQualityRoutes from "./routes/partnerQuality.routes";
 import relationshipGoalRoutes from "./routes/relationshipGoal.routes";
 import pointsRoutes from "./routes/points.routes";
 import premiumRoutes from "./routes/premium.routes";
+import referralRoutes from "./routes/referral.routes";
 import circleRoutes from "./routes/circle.routes";
 import postRoutes from "./routes/post.routes";
 import commentRoutes from "./routes/comment.routes";
@@ -101,6 +102,7 @@ export function createApp(): Application {
   app.use(`${apiPrefix}/partner-qualities`, partnerQualityRoutes);
   app.use(`${apiPrefix}/points`, pointsRoutes);
   app.use(`${apiPrefix}/premium`, premiumRoutes);
+  app.use(`${apiPrefix}/referrals`, referralRoutes);
   app.use(`${apiPrefix}/circles`, circleRoutes);
   app.use(`${apiPrefix}/posts`, postRoutes);
   app.use(`${apiPrefix}/comments`, commentRoutes);

@@ -4,6 +4,7 @@ import { HobbyRepository } from "../repositories/hobby.repository";
 import { CircleRepository } from "../repositories/circle.repository";
 import { CircleService } from "./circle.service";
 import { PointsService } from "./points.service";
+import { ReferralService } from "./referral.service";
 import { AppError } from "../middleware/error.middleware";
 import {
   CommunityOnboardingDto,
@@ -34,6 +35,7 @@ export class OnboardingService {
   private circleService: CircleService;
   private pointsService: PointsService;
   private postService: PostService;
+  private referralService: ReferralService;
 
   constructor(
     userRepository?: UserRepository,
@@ -41,7 +43,8 @@ export class OnboardingService {
     circleRepository?: CircleRepository,
     circleService?: CircleService,
     pointsService?: PointsService,
-    postService?: PostService
+    postService?: PostService,
+    referralService?: ReferralService
   ) {
     this.userRepository = userRepository ?? new UserRepository();
     this.hobbyRepository = hobbyRepository ?? new HobbyRepository();
@@ -49,6 +52,7 @@ export class OnboardingService {
     this.circleService = circleService ?? new CircleService();
     this.pointsService = pointsService ?? new PointsService();
     this.postService = postService ?? new PostService();
+    this.referralService = referralService ?? new ReferralService();
   }
 
   async getStatus(userId: string): Promise<OnboardingStatusResponse> {
@@ -159,6 +163,13 @@ export class OnboardingService {
         "Community onboarding completed"
       );
       pointsAwarded = pointsResult.awarded;
+
+      try {
+        const referralBonus = await this.referralService.completeForUser(userId);
+        pointsAwarded += referralBonus.referee_awarded;
+      } catch (error) {
+        console.error("Referral completion failed:", error);
+      }
     }
 
     const updatedUser = await this.userRepository.findById(userId);
