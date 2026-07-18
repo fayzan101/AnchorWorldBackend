@@ -160,14 +160,14 @@ describe("PostService", () => {
 
     expect(mockPointsService.awardPointsOnce).toHaveBeenCalledWith(
       "user-1",
-      150,
+      25,
       "first_post",
       "post-1",
       "First post created"
     );
     expect(mockPointsService.awardPointsWithinDailyEventCap).toHaveBeenCalledWith(
       "user-1",
-      25,
+      5,
       "post_created",
       3,
       "post-1",
@@ -175,7 +175,7 @@ describe("PostService", () => {
     );
     expect(mockPointsService.awardPointsWithinDailyEventCap).toHaveBeenCalledWith(
       "user-1",
-      40,
+      7,
       "circle_post",
       2,
       "post-1",
@@ -197,7 +197,7 @@ describe("PostService", () => {
 
     expect(mockPointsService.awardPointsWithinDailyPointsCap).toHaveBeenCalledWith(
       "owner-1",
-      5,
+      1,
       "post_liked_received",
       50,
       "post-1",

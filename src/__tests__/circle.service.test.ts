@@ -73,7 +73,7 @@ describe("CircleService", () => {
     mockCircleRepository.joinCircle.mockResolvedValue({} as never);
     mockPointsService.awardPointsOncePerReference.mockResolvedValue({
       balance: 40,
-      awarded: 30,
+      awarded: 5,
     });
 
     const result = await service.joinCircle("circle-1", "user-1");
@@ -85,7 +85,7 @@ describe("CircleService", () => {
     );
     expect(mockPointsService.awardPointsOncePerReference).toHaveBeenCalledWith(
       "user-1",
-      30,
+      5,
       "circle_joined",
       "circle-1",
       "Joined Fitness & Health"

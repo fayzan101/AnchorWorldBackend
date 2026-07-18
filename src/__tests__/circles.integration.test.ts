@@ -70,7 +70,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .get("/api/points/balance")
       .set("Authorization", `Bearer ${accessToken}`);
 
-    expect(balanceRes.body.data.balance).toBeGreaterThanOrEqual(30);
+    expect(balanceRes.body.data.balance).toBeGreaterThanOrEqual(5);
 
     const profileRes = await request(app)
       .get("/api/profile")

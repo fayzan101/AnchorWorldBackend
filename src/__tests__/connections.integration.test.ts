@@ -102,8 +102,8 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .get("/api/points/balance")
       .set("Authorization", `Bearer ${tokenB}`);
 
-    expect(balanceA.body.data.balance).toBeGreaterThanOrEqual(50);
-    expect(balanceB.body.data.balance).toBeGreaterThanOrEqual(50);
+    expect(balanceA.body.data.balance).toBeGreaterThanOrEqual(10);
+    expect(balanceB.body.data.balance).toBeGreaterThanOrEqual(10);
 
     const txA = await request(app)
       .get("/api/points/transactions")

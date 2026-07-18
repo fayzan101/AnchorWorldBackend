@@ -7,4 +7,14 @@ module.exports = {
   moduleFileExtensions: ["ts", "js", "json"],
   clearMocks: true,
   setupFiles: ["<rootDir>/src/__tests__/setup.ts"],
+  transform: {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        diagnostics: {
+          ignoreCodes: [151002],
+        },
+      },
+    ],
+  },
 };
