@@ -26,6 +26,20 @@ router.get('/conversations', messageController.getConversations);
 router.get('/unread-count', messageController.getUnreadCount);
 
 /**
+ * @route   GET /api/messages/chat-access/:userId
+ * @desc    Chat unlock eligibility for a peer
+ * @access  Private
+ */
+router.get('/chat-access/:userId', messageController.getChatAccess);
+
+/**
+ * @route   POST /api/messages/unlock/:userId
+ * @desc    Spend points to unlock chat with a peer (free plan)
+ * @access  Private
+ */
+router.post('/unlock/:userId', messageLimiter, messageController.unlockChat);
+
+/**
  * @route   GET /api/messages/:userId
  * @desc    Get chat history with a user
  * @access  Private

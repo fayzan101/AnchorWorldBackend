@@ -7,7 +7,7 @@ import { PremiumService } from "../services/premium.service";
 import { AgoraService } from "../services/agora.service";
 import { NotificationService } from "../services/notification.service";
 import { AppError } from "../middleware/error.middleware";
-import { VideoCall, VideoCallStatus } from "../entities/VideoCall.entity";
+import { VideoCall, VideoCallStatus, CallType } from "../entities/VideoCall.entity";
 import { User } from "../entities/User.entity";
 import { PointTypes } from "../constants/point-types";
 
@@ -34,7 +34,15 @@ describe("VideoCallService", () => {
   const premiumUser = {
     id: callerId,
     is_premium: true,
+    is_basic: true,
     premium_until: new Date(Date.now() + 86_400_000),
+  } as User;
+
+  const basicUser = {
+    id: callerId,
+    is_premium: false,
+    is_basic: true,
+    basic_until: new Date(Date.now() + 86_400_000),
   } as User;
 
   const mockCall = (overrides: Partial<VideoCall> = {}) =>
@@ -43,6 +51,7 @@ describe("VideoCallService", () => {
       caller_id: callerId,
       callee_id: calleeId,
       status: VideoCallStatus.PENDING,
+      call_type: CallType.VIDEO,
       duration_minutes: 5,
       points_spent: 0,
       channel_name: "call-uuid-123",
@@ -79,7 +88,9 @@ describe("VideoCallService", () => {
 
     premiumService = {
       ensurePremiumActive: jest.fn().mockResolvedValue(premiumUser),
+      ensurePlansActive: jest.fn().mockResolvedValue(premiumUser),
       isPremiumActive: jest.fn().mockReturnValue(true),
+      isBasicActive: jest.fn().mockReturnValue(true),
     } as unknown as jest.Mocked<PremiumService>;
 
     agoraService = {
@@ -118,9 +129,10 @@ describe("VideoCallService", () => {
     });
 
     expect(result.points_spent).toBe(0);
+    expect(result.call_type).toBe(CallType.VIDEO);
     expect(pointsService.spendPoints).not.toHaveBeenCalled();
     expect(videoCallRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ points_spent: 0 })
+      expect.objectContaining({ points_spent: 0, call_type: CallType.VIDEO })
     );
     expect(notificationService.notifyVideoIntroRequest).toHaveBeenCalledWith(
       calleeId,
@@ -130,18 +142,62 @@ describe("VideoCallService", () => {
     );
   });
 
-  it("rejects request when caller is not Premium", async () => {
-    premiumService.ensurePremiumActive.mockResolvedValue({
-      id: callerId,
-      is_premium: false,
-      premium_until: null,
-    } as User);
+  it("requests voice intro with Basic", async () => {
+    premiumService.ensurePlansActive.mockResolvedValue(basicUser);
     premiumService.isPremiumActive.mockReturnValue(false);
+    premiumService.isBasicActive.mockReturnValue(true);
+    userRepository.findById
+      .mockResolvedValueOnce({ id: calleeId } as User)
+      .mockResolvedValueOnce({ id: callerId, full_name: "Caller" } as User);
+    followRepository.checkMutualFollow.mockResolvedValue(true);
+    videoCallRepository.countRequestsToday.mockResolvedValue(0);
+    videoCallRepository.create.mockResolvedValue(
+      mockCall({ call_type: CallType.VOICE })
+    );
+    videoCallRepository.findById.mockResolvedValue(
+      mockCall({ call_type: CallType.VOICE })
+    );
+
+    const result = await service.requestIntro(callerId, {
+      callee_id: calleeId,
+      duration_minutes: 5,
+      call_type: "voice",
+    });
+
+    expect(result.call_type).toBe(CallType.VOICE);
+    expect(videoCallRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ call_type: CallType.VOICE })
+    );
+  });
+
+  it("rejects video when caller is not Premium", async () => {
+    premiumService.ensurePlansActive.mockResolvedValue(basicUser);
+    premiumService.isPremiumActive.mockReturnValue(false);
+    premiumService.isBasicActive.mockReturnValue(true);
 
     await expect(
       service.requestIntro(callerId, {
         callee_id: calleeId,
         duration_minutes: 5,
+        call_type: "video",
+      })
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("rejects voice when caller is not Basic", async () => {
+    premiumService.ensurePlansActive.mockResolvedValue({
+      id: callerId,
+      is_premium: false,
+      is_basic: false,
+    } as User);
+    premiumService.isPremiumActive.mockReturnValue(false);
+    premiumService.isBasicActive.mockReturnValue(false);
+
+    await expect(
+      service.requestIntro(callerId, {
+        callee_id: calleeId,
+        duration_minutes: 5,
+        call_type: "voice",
       })
     ).rejects.toMatchObject({ statusCode: 403 });
   });
@@ -205,9 +261,9 @@ describe("VideoCallService", () => {
     expect(pointsService.awardPointsOncePerReference).toHaveBeenCalledTimes(2);
   });
 
-  it("returns agora token for participant", async () => {
+  it("returns agora token with call_type for participant", async () => {
     videoCallRepository.findById.mockResolvedValue(
-      mockCall({ status: VideoCallStatus.ACTIVE })
+      mockCall({ status: VideoCallStatus.ACTIVE, call_type: CallType.VOICE })
     );
     agoraService.generateRtcToken.mockReturnValue({
       token: "agora-token",
@@ -219,6 +275,7 @@ describe("VideoCallService", () => {
     const result = await service.getToken("call-uuid-123", callerId);
 
     expect(result.token).toBe("agora-token");
+    expect(result.call_type).toBe(CallType.VOICE);
     expect(agoraService.generateRtcToken).toHaveBeenCalledWith(
       "call-uuid-123",
       callerId

@@ -29,7 +29,9 @@ tags:
   - name: Follows
     description: Connection requests and mutual connections
   - name: Messages
-    description: REST messaging (mutual connection required)
+    description: |
+      REST messaging. Mutual connection required.
+      Free plan also requires a chat unlock (20 points, max 2 partners) or Basic/Premium for unlimited chat.
   - name: Notifications
     description: FCM tokens and in-app notification list
   - name: Reference Data
@@ -40,12 +42,18 @@ tags:
     description: Local community discovery
   - name: Points
     description: Anchor Points wallet and transaction history
+  - name: Premium
+    description: |
+      Basic and Premium subscriptions via RevenueCat.
+      Basic = unlimited chat + voice intros. Premium = video intros (+ Basic benefits).
   - name: Circles
     description: Topic communities — primary discovery surface
   - name: Posts
     description: Community posts, feed, likes, and comments
   - name: Video Calls
-    description: Guided video intros (Agora RTC) — points spend flow
+    description: |
+      Guided voice/video intros (Agora RTC).
+      Voice requires Basic (or Premium). Video requires Premium. No points spent on calls.
   - name: Admin
     description: Content moderation (ADMIN_USER_IDS only)
 
@@ -736,13 +744,81 @@ paths:
                           unread_count:
                             type: integer
 
+  /messages/chat-access/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Messages]
+      summary: Chat unlock eligibility for a peer
+      description: |
+        Returns whether the current user can message this peer, unlock eligibility, and slot usage.
+        Free plan: both users need ≥ **20** points; initiator spends **20** once; max **2** unlocked partners.
+        Basic/Premium: unlimited chat (`has_unlimited_chat: true`).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Access status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ChatAccess"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /messages/unlock/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [Messages]
+      summary: Unlock chat with a peer (free plan)
+      description: |
+        Spends **20** Anchor Points from the initiator to permanently unlock messaging with this connection.
+        Both users must have balance ≥ 20. Free plan max **2** unlocks initiated by the user.
+        Basic/Premium users do not need this (returns already unlocked).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Chat unlocked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ChatAccess"
+                          - type: object
+                            properties:
+                              already_unlocked:
+                                type: boolean
+                              points_spent:
+                                type: integer
+                                example: 20
+        "402":
+          description: Insufficient points (code may be `INSUFFICIENT_POINTS`)
+        "403":
+          description: |
+            Locked / slot limit / peer needs points.
+            Possible `code` values: `CHAT_SLOT_LIMIT`, `PEER_INSUFFICIENT_POINTS`
+
   /messages/{userId}:
     parameters:
       - $ref: "#/components/parameters/UserId"
     get:
       tags: [Messages]
       summary: Get chat history with a user
-      description: Requires mutual connection (both users must have accepted follows).
+      description: |
+        Requires mutual connection. Free plan also requires an unlock for this pair (or Basic/Premium).
+        Returns `403` with `code: CHAT_LOCKED` when locked.
       security:
         - bearerAuth: []
       parameters:
@@ -761,11 +837,13 @@ paths:
                       data:
                         $ref: "#/components/schemas/PaginatedMessages"
         "403":
-          $ref: "#/components/responses/Forbidden"
+          description: Not connected or chat locked (`CHAT_LOCKED`)
     post:
       tags: [Messages]
       summary: Send message to user
-      description: Requires mutual connection. Blocked users cannot exchange messages.
+      description: |
+        Requires mutual connection and chat access (unlocked or Basic/Premium).
+        Blocked users cannot exchange messages. Locked free chats return `code: CHAT_LOCKED`.
       security:
         - bearerAuth: []
       requestBody:
@@ -787,7 +865,7 @@ paths:
                       data:
                         $ref: "#/components/schemas/Message"
         "403":
-          $ref: "#/components/responses/Forbidden"
+          description: Not connected, blocked, or chat locked (`CHAT_LOCKED`)
     delete:
       tags: [Messages]
       summary: Delete conversation with user
@@ -1125,13 +1203,82 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /premium/status:
+    get:
+      tags: [Premium]
+      summary: Get plan / Premium status
+      description: |
+        Returns effective plan (`free` | `basic` | `premium`), voice/video gates,
+        chat unlock cost (**20**), slot usage, Basic product id, and Premium discount tiers.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Plan status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PlanStatus"
+
+  /premium/confirm:
+    post:
+      tags: [Premium]
+      summary: Confirm Basic or Premium after store purchase
+      description: |
+        After a successful RevenueCat purchase/restore, syncs `basic` and `premium` entitlements
+        to the user. Premium implies Basic access.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Entitlements synced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PlanStatus"
+        "402":
+          description: No active Basic or Premium entitlement found
+
+  /premium/subscribe:
+    post:
+      tags: [Premium]
+      summary: Deprecated free subscribe
+      description: Returns 400 — use in-app purchase + `POST /premium/confirm`.
+      security:
+        - bearerAuth: []
+      responses:
+        "400":
+          description: Use IAP confirm instead
+
+  /premium/webhook:
+    post:
+      tags: [Premium]
+      summary: RevenueCat webhook
+      description: Server-to-server; authorize with `REVENUECAT_WEBHOOK_SECRET`. Syncs Basic/Premium.
+      security: []
+      responses:
+        "200":
+          description: Webhook processed
+
   /video-calls/request:
     post:
       tags: [Video Calls]
-      summary: Request a guided video intro
+      summary: Request a guided voice or video intro
       description: |
-        Spends **500** points (5 min) or **800** points (10 min). Requires mutual connection.
-        Max **2 requests per day**. Pending requests expire after 60 seconds.
+        **No points spent** on intros.
+        - `call_type: voice` — requires **Basic** (or Premium)
+        - `call_type: video` (default) — requires **Premium**
+        Requires mutual connection. Max **2 requests per day**. Pending expire after 60 seconds.
       security:
         - bearerAuth: []
       requestBody:
@@ -1142,7 +1289,7 @@ paths:
               $ref: "#/components/schemas/VideoCallRequest"
       responses:
         "201":
-          description: Video intro request created
+          description: Intro request created
           content:
             application/json:
               schema:
@@ -1152,17 +1299,15 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/VideoCall"
-        "402":
-          description: Insufficient Anchor Points
         "403":
-          $ref: "#/components/responses/Forbidden"
+          description: Missing Basic/Premium or not connected
         "429":
           description: Daily request limit reached
 
   /video-calls/history:
     get:
       tags: [Video Calls]
-      summary: Video intro history
+      summary: Voice/video intro history
       security:
         - bearerAuth: []
       parameters:
@@ -1170,7 +1315,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
       responses:
         "200":
-          description: Paginated past video intros
+          description: Paginated past intros
           content:
             application/json:
               schema:
@@ -1185,7 +1330,7 @@ paths:
     get:
       tags: [Video Calls]
       summary: Get Agora RTC token
-      description: Returns token for caller or callee when call is pending or active.
+      description: Returns token (and `call_type`) for caller or callee when call is pending or active.
       security:
         - bearerAuth: []
       parameters:
@@ -1213,7 +1358,7 @@ paths:
   /video-calls/{id}/accept:
     post:
       tags: [Video Calls]
-      summary: Accept video intro (callee)
+      summary: Accept intro (callee)
       security:
         - bearerAuth: []
       parameters:
@@ -1239,8 +1384,8 @@ paths:
   /video-calls/{id}/reject:
     post:
       tags: [Video Calls]
-      summary: Reject video intro (callee)
-      description: Refunds points to caller.
+      summary: Reject intro (callee)
+      description: Legacy calls that spent points are refunded; new intros spend 0.
       security:
         - bearerAuth: []
       parameters:
@@ -1252,13 +1397,13 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Call rejected and caller refunded
+          description: Call rejected
 
   /video-calls/{id}/cancel:
     post:
       tags: [Video Calls]
-      summary: Cancel video intro (caller)
-      description: Refunds points before callee answers.
+      summary: Cancel intro (caller)
+      description: Legacy point refunds only if points were spent.
       security:
         - bearerAuth: []
       parameters:
@@ -1270,13 +1415,13 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Call cancelled and refunded
+          description: Call cancelled
 
   /video-calls/{id}/end:
     post:
       tags: [Video Calls]
-      summary: End active video intro
-      description: Marks call completed. Awards **+100** points to both users if duration exceeds 30 seconds.
+      summary: End active intro
+      description: Marks call completed. Awards **+15** points to both users if duration exceeds 30 seconds.
       security:
         - bearerAuth: []
       parameters:
@@ -2760,6 +2905,15 @@ components:
         duration_minutes:
           type: integer
           enum: [5, 10]
+        call_type:
+          type: string
+          enum: [voice, video]
+          default: video
+          description: voice requires Basic; video requires Premium
+
+    CallType:
+      type: string
+      enum: [voice, video]
 
     VideoCallStatus:
       type: string
@@ -2779,10 +2933,13 @@ components:
           format: uuid
         status:
           $ref: "#/components/schemas/VideoCallStatus"
+        call_type:
+          $ref: "#/components/schemas/CallType"
         duration_minutes:
           type: integer
         points_spent:
           type: integer
+          description: Always 0 for new intros
         channel_name:
           type: string
         started_at:
@@ -2817,6 +2974,92 @@ components:
         expires_at:
           type: integer
           description: Unix timestamp when token expires
+        call_type:
+          $ref: "#/components/schemas/CallType"
+
+    ChatAccess:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        blocked:
+          type: boolean
+        plan:
+          type: string
+          enum: [free, basic, premium]
+        has_unlimited_chat:
+          type: boolean
+        unlocked:
+          type: boolean
+        can_message:
+          type: boolean
+        can_unlock:
+          type: boolean
+        chat_unlock_cost:
+          type: integer
+          example: 20
+          description: Temporary unlock cost (raise later)
+        chat_slots_used:
+          type: integer
+        chat_slots_max:
+          type: integer
+          nullable: true
+          description: null when unlimited (Basic/Premium)
+        my_points_balance:
+          type: integer
+        peer_points_balance:
+          type: integer
+        peer_has_enough_points:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+          description: e.g. chat_locked, slot_limit, insufficient_points
+
+    PlanStatus:
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [free, basic, premium]
+        is_basic:
+          type: boolean
+        is_premium:
+          type: boolean
+        can_voice:
+          type: boolean
+        can_video:
+          type: boolean
+        has_unlimited_chat:
+          type: boolean
+        chat_slots_used:
+          type: integer
+        chat_slots_max:
+          type: integer
+          nullable: true
+        chat_unlock_cost:
+          type: integer
+          example: 20
+        points_balance:
+          type: integer
+        basic_price_usd:
+          type: number
+        recommended_basic_product_id:
+          type: string
+          example: basic_monthly
+        recommended_product_id:
+          type: string
+          description: Premium SKU for points discount tier
+        base_price_usd:
+          type: number
+        discount_percent:
+          type: integer
+        discounted_price_usd:
+          type: number
+        benefits:
+          type: array
+          items:
+            type: string
 
     PaginatedVideoCalls:
       type: object

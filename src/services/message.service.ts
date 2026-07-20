@@ -1,22 +1,218 @@
 import { MessageRepository } from "../repositories/message.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
+import { ChatUnlockRepository } from "../repositories/chat-unlock.repository";
+import { PointsService } from "./points.service";
+import { PremiumService } from "./premium.service";
 import { AppError } from "../middleware/error.middleware";
 import { PaginationQuery } from "../types";
 import { isEitherBlocked } from "../utils/block.util";
+import {
+  CHAT_UNLOCK_COST,
+  FREE_CHAT_UNLOCK_MAX,
+  PointTypes,
+} from "../constants/point-types";
+import { normalizeChatPair } from "../entities/ChatUnlock.entity";
 
 export class MessageService {
   private messageRepository: MessageRepository;
   private followRepository: FollowRepository;
   private userRepository: UserRepository;
+  private chatUnlockRepository: ChatUnlockRepository;
+  private pointsService: PointsService;
+  private premiumService: PremiumService;
 
-  constructor() {
-    this.messageRepository = new MessageRepository();
-    this.followRepository = new FollowRepository();
-    this.userRepository = new UserRepository();
+  constructor(
+    messageRepository?: MessageRepository,
+    followRepository?: FollowRepository,
+    userRepository?: UserRepository,
+    chatUnlockRepository?: ChatUnlockRepository,
+    pointsService?: PointsService,
+    premiumService?: PremiumService
+  ) {
+    this.messageRepository = messageRepository ?? new MessageRepository();
+    this.followRepository = followRepository ?? new FollowRepository();
+    this.userRepository = userRepository ?? new UserRepository();
+    this.chatUnlockRepository =
+      chatUnlockRepository ?? new ChatUnlockRepository();
+    this.pointsService = pointsService ?? new PointsService();
+    this.premiumService = premiumService ?? new PremiumService();
   }
 
-  async sendMessage(senderId: string, receiverId: string, content: string) {
+  async getChatAccess(userId: string, otherUserId: string) {
+    if (userId === otherUserId) {
+      throw new AppError("Invalid peer", 400);
+    }
+
+    const peer = await this.userRepository.findById(otherUserId);
+    if (!peer) throw new AppError("User not found", 404);
+
+    const connected = await this.followRepository.checkMutualFollow(
+      userId,
+      otherUserId
+    );
+    const blocked = await isEitherBlocked(userId, otherUserId);
+    const user = await this.premiumService.ensurePlansActive(userId);
+    const plan = this.premiumService.effectivePlan(user);
+    const unlimited = plan !== "free";
+    const unlocked = await this.chatUnlockRepository.isUnlocked(
+      userId,
+      otherUserId
+    );
+    const slotsUsed =
+      await this.chatUnlockRepository.countUnlockedBy(userId);
+    const myBalance = (await this.pointsService.getBalance(userId)).balance;
+    const peerBalance = (await this.pointsService.getBalance(otherUserId))
+      .balance;
+
+    const canMessage =
+      connected &&
+      !blocked &&
+      (unlimited || unlocked);
+
+    const canUnlock =
+      connected &&
+      !blocked &&
+      !unlimited &&
+      !unlocked &&
+      slotsUsed < FREE_CHAT_UNLOCK_MAX &&
+      myBalance >= CHAT_UNLOCK_COST &&
+      peerBalance >= CHAT_UNLOCK_COST;
+
+    return {
+      connected,
+      blocked,
+      plan,
+      has_unlimited_chat: unlimited,
+      unlocked,
+      can_message: canMessage,
+      can_unlock: canUnlock,
+      chat_unlock_cost: CHAT_UNLOCK_COST,
+      chat_slots_used: slotsUsed,
+      chat_slots_max: unlimited ? null : FREE_CHAT_UNLOCK_MAX,
+      my_points_balance: myBalance,
+      peer_points_balance: peerBalance,
+      peer_has_enough_points: peerBalance >= CHAT_UNLOCK_COST,
+      reason: !connected
+        ? "not_connected"
+        : blocked
+          ? "blocked"
+          : canMessage
+            ? null
+            : unlocked
+              ? null
+              : slotsUsed >= FREE_CHAT_UNLOCK_MAX
+                ? "slot_limit"
+                : myBalance < CHAT_UNLOCK_COST
+                  ? "insufficient_points"
+                  : peerBalance < CHAT_UNLOCK_COST
+                    ? "peer_insufficient_points"
+                    : "chat_locked",
+    };
+  }
+
+  async unlockChat(userId: string, otherUserId: string) {
+    if (userId === otherUserId) {
+      throw new AppError("Cannot unlock chat with yourself", 400);
+    }
+
+    const peer = await this.userRepository.findById(otherUserId);
+    if (!peer) throw new AppError("User not found", 404);
+
+    if (await isEitherBlocked(userId, otherUserId)) {
+      throw new AppError("Cannot unlock chat with this user", 403);
+    }
+
+    const connected = await this.followRepository.checkMutualFollow(
+      userId,
+      otherUserId
+    );
+    if (!connected) {
+      throw new AppError("Can only unlock chat with connections", 403);
+    }
+
+    const user = await this.premiumService.ensurePlansActive(userId);
+    if (this.premiumService.effectivePlan(user) !== "free") {
+      return {
+        ...(await this.getChatAccess(userId, otherUserId)),
+        unlocked: true,
+        already_unlocked: true,
+        points_spent: 0,
+      };
+    }
+
+    const existing = await this.chatUnlockRepository.findPair(
+      userId,
+      otherUserId
+    );
+    if (existing) {
+      return {
+        ...(await this.getChatAccess(userId, otherUserId)),
+        unlocked: true,
+        already_unlocked: true,
+        points_spent: 0,
+      };
+    }
+
+    const slotsUsed =
+      await this.chatUnlockRepository.countUnlockedBy(userId);
+    if (slotsUsed >= FREE_CHAT_UNLOCK_MAX) {
+      throw new AppError(
+        `Free plan allows chatting with at most ${FREE_CHAT_UNLOCK_MAX} people. Upgrade to Basic for unlimited chat.`,
+        403,
+        true,
+        "CHAT_SLOT_LIMIT"
+      );
+    }
+
+    const myBalance = (await this.pointsService.getBalance(userId)).balance;
+    const peerBalance = (await this.pointsService.getBalance(otherUserId))
+      .balance;
+    if (myBalance < CHAT_UNLOCK_COST) {
+      throw new AppError(
+        `You need ${CHAT_UNLOCK_COST} points to unlock chat`,
+        402,
+        true,
+        "INSUFFICIENT_POINTS"
+      );
+    }
+    if (peerBalance < CHAT_UNLOCK_COST) {
+      throw new AppError(
+        `The other person needs at least ${CHAT_UNLOCK_COST} points before chat can be unlocked`,
+        403,
+        true,
+        "PEER_INSUFFICIENT_POINTS"
+      );
+    }
+
+    const { user_a, user_b } = normalizeChatPair(userId, otherUserId);
+    const referenceId = `chat_unlock:${user_a}:${user_b}`;
+
+    await this.pointsService.spendPoints(
+      userId,
+      CHAT_UNLOCK_COST,
+      PointTypes.CHAT_UNLOCK_SPENT,
+      referenceId,
+      "Chat unlock"
+    );
+
+    await this.chatUnlockRepository.createUnlock({
+      userId1: userId,
+      userId2: otherUserId,
+      unlockedBy: userId,
+      pointsSpent: CHAT_UNLOCK_COST,
+    });
+
+    return {
+      ...(await this.getChatAccess(userId, otherUserId)),
+      unlocked: true,
+      already_unlocked: false,
+      points_spent: CHAT_UNLOCK_COST,
+      can_message: true,
+    };
+  }
+
+  private async assertCanMessage(senderId: string, receiverId: string) {
     if (await isEitherBlocked(senderId, receiverId)) {
       throw new AppError("Cannot message this user", 403);
     }
@@ -30,14 +226,34 @@ export class MessageService {
       throw new AppError("Can only message users you are connected with", 403);
     }
 
-    // Create message
+    const sender = await this.premiumService.ensurePlansActive(senderId);
+    if (this.premiumService.effectivePlan(sender) !== "free") {
+      return;
+    }
+
+    const unlocked = await this.chatUnlockRepository.isUnlocked(
+      senderId,
+      receiverId
+    );
+    if (!unlocked) {
+      throw new AppError(
+        `Chat is locked. Spend ${CHAT_UNLOCK_COST} points to unlock this conversation, or upgrade to Basic.`,
+        403,
+        true,
+        "CHAT_LOCKED"
+      );
+    }
+  }
+
+  async sendMessage(senderId: string, receiverId: string, content: string) {
+    await this.assertCanMessage(senderId, receiverId);
+
     const message = await this.messageRepository.create(
       senderId,
       receiverId,
       content
     );
 
-    // Get sender info for response
     const sender = await this.userRepository.findById(senderId);
 
     return {
@@ -59,7 +275,6 @@ export class MessageService {
     otherUserId: string,
     query: PaginationQuery
   ) {
-    // Check if users are mutually following
     const areMutualFollowers = await this.followRepository.checkMutualFollow(
       userId,
       otherUserId
@@ -70,6 +285,22 @@ export class MessageService {
         "Can only view messages from users you are connected with",
         403
       );
+    }
+
+    const user = await this.premiumService.ensurePlansActive(userId);
+    if (this.premiumService.effectivePlan(user) === "free") {
+      const unlocked = await this.chatUnlockRepository.isUnlocked(
+        userId,
+        otherUserId
+      );
+      if (!unlocked) {
+        throw new AppError(
+          `Chat is locked. Spend ${CHAT_UNLOCK_COST} points to unlock this conversation, or upgrade to Basic.`,
+          403,
+          true,
+          "CHAT_LOCKED"
+        );
+      }
     }
 
     const page = query.page || 1;
@@ -114,7 +345,6 @@ export class MessageService {
       throw new AppError("Message not found", 404);
     }
 
-    // Check if user is the receiver
     if (message.receiver_id !== userId) {
       throw new AppError("Not authorized to mark this message as read", 403);
     }

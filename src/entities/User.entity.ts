@@ -154,6 +154,15 @@ export class User {
   notifications_enabled: boolean;
 
   @Column({ type: "boolean", default: false })
+  is_basic: boolean;
+
+  @Column({ type: "timestamp", nullable: true })
+  basic_until: Date | null;
+
+  @Column({ type: "varchar", length: 128, nullable: true })
+  basic_product_id: string | null;
+
+  @Column({ type: "boolean", default: false })
   is_premium: boolean;
 
   @Column({ type: "timestamp", nullable: true })

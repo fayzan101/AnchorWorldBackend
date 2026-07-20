@@ -14,14 +14,22 @@ export type RevenueCatSubscriber = {
   };
 };
 
+export type ExtractedEntitlement = {
+  active: boolean;
+  expiresAt: Date | null;
+  productId: string | null;
+};
+
 export class RevenueCatService {
   private apiKey: string;
   private entitlementId: string;
+  private basicEntitlementId: string;
   private baseUrl = "https://api.revenuecat.com/v1";
 
   constructor() {
     this.apiKey = config.revenueCat.apiKey;
     this.entitlementId = config.revenueCat.entitlementId;
+    this.basicEntitlementId = config.revenueCat.basicEntitlementId;
   }
 
   get configured(): boolean {
@@ -58,13 +66,12 @@ export class RevenueCatService {
     return (await resp.json()) as RevenueCatSubscriber;
   }
 
-  extractPremium(data: RevenueCatSubscriber): {
-    active: boolean;
-    expiresAt: Date | null;
-    productId: string | null;
-  } {
+  private extractEntitlement(
+    data: RevenueCatSubscriber,
+    entitlementId: string
+  ): ExtractedEntitlement {
     const entitlement =
-      data.subscriber?.entitlements?.[this.entitlementId] ?? null;
+      data.subscriber?.entitlements?.[entitlementId] ?? null;
 
     if (!entitlement) {
       return { active: false, expiresAt: null, productId: null };
@@ -80,5 +87,30 @@ export class RevenueCatService {
       expiresAt,
       productId: entitlement.product_identifier ?? null,
     };
+  }
+
+  extractPremium(data: RevenueCatSubscriber): ExtractedEntitlement {
+    return this.extractEntitlement(data, this.entitlementId);
+  }
+
+  extractBasic(data: RevenueCatSubscriber): ExtractedEntitlement {
+    return this.extractEntitlement(data, this.basicEntitlementId);
+  }
+
+  /** Premium implies Basic access for product gates. */
+  extractPlans(data: RevenueCatSubscriber): {
+    premium: ExtractedEntitlement;
+    basic: ExtractedEntitlement;
+  } {
+    const premium = this.extractPremium(data);
+    const basicOnly = this.extractBasic(data);
+    const basic: ExtractedEntitlement = premium.active
+      ? {
+          active: true,
+          expiresAt: premium.expiresAt ?? basicOnly.expiresAt,
+          productId: basicOnly.productId ?? premium.productId,
+        }
+      : basicOnly;
+    return { premium, basic };
   }
 }
