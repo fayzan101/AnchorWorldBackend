@@ -21,11 +21,14 @@ export class MessageSoftDelete1719000000015 implements MigrationInterface {
           isNullable: true,
         })
       );
+    }
+    if (messages && !messages.findColumnByName("deleted_by_user_id")) {
       await queryRunner.addColumn(
         "messages",
         new TableColumn({
           name: "deleted_by_user_id",
-          type: "uuid",
+          type: "varchar",
+          length: "36",
           isNullable: true,
         })
       );
@@ -39,12 +42,14 @@ export class MessageSoftDelete1719000000015 implements MigrationInterface {
           columns: [
             {
               name: "message_id",
-              type: "uuid",
+              type: "varchar",
+              length: "36",
               isPrimary: true,
             },
             {
               name: "user_id",
-              type: "uuid",
+              type: "varchar",
+              length: "36",
               isPrimary: true,
             },
             {

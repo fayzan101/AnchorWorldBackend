@@ -17,16 +17,16 @@ export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'varchar', length: 36 })
   sender_id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'varchar', length: 36 })
   receiver_id: string;
 
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'varchar', length: 36, nullable: true })
   reply_to_message_id: string | null;
 
   @Column({ type: 'boolean', default: false })
@@ -39,7 +39,7 @@ export class Message {
   @Column({ type: 'timestamp', nullable: true })
   deleted_at: Date | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'varchar', length: 36, nullable: true })
   deleted_by_user_id: string | null;
 
   @CreateDateColumn()

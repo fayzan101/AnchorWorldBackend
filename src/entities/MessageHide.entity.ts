@@ -13,10 +13,10 @@ import { Message } from "./Message.entity";
 @Entity("message_hides")
 @Index(["user_id"])
 export class MessageHide {
-  @PrimaryColumn({ type: "uuid" })
+  @PrimaryColumn({ type: "varchar", length: 36 })
   message_id: string;
 
-  @PrimaryColumn({ type: "uuid" })
+  @PrimaryColumn({ type: "varchar", length: 36 })
   user_id: string;
 
   @CreateDateColumn()

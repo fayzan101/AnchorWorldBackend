@@ -10,7 +10,8 @@ export class MessageReplyTo1719000000014 implements MigrationInterface {
         "messages",
         new TableColumn({
           name: "reply_to_message_id",
-          type: "uuid",
+          type: "varchar",
+          length: "36",
           isNullable: true,
         })
       );
