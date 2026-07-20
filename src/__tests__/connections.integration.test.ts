@@ -1,6 +1,8 @@
 import request from "supertest";
 import { createApp } from "../app";
 import { AppDataSource, initializeDatabase } from "../config/database";
+import { PointsService } from "../services/points.service";
+import { CHAT_UNLOCK_COST } from "../constants/point-types";
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
 
@@ -9,6 +11,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
   let tokenA: string;
   let tokenB: string;
   let tokenC: string;
+  let userAId: string;
   let userBId: string;
 
   const registerUser = async (label: string) => {
@@ -36,6 +39,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
     tokenA = userA.token;
     tokenB = userB.token;
     tokenC = userC.token;
+    userAId = userA.userId;
     userBId = userB.userId;
   });
 
@@ -124,7 +128,48 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
     expect(res.body.data.connection_status).toBe("connected");
   });
 
-  it("allows messaging between connected users", async () => {
+  it("blocks messaging until chat is unlocked on free plan", async () => {
+    const res = await request(app)
+      .post(`/api/messages/${userBId}`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ content: "Hello connection!" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("CHAT_LOCKED");
+  });
+
+  it("unlocks chat with points then allows messaging between connected users", async () => {
+    const points = new PointsService();
+    // Connection awards 10; unlock needs both ≥ CHAT_UNLOCK_COST and initiator spend.
+    await points.awardPoints(
+      userAId,
+      CHAT_UNLOCK_COST,
+      "test_chat_unlock_grant",
+      undefined,
+      "Integration test grant"
+    );
+    await points.awardPoints(
+      userBId,
+      CHAT_UNLOCK_COST,
+      "test_chat_unlock_grant",
+      undefined,
+      "Integration test grant"
+    );
+
+    const accessBefore = await request(app)
+      .get(`/api/messages/chat-access/${userBId}`)
+      .set("Authorization", `Bearer ${tokenA}`);
+    expect(accessBefore.status).toBe(200);
+    expect(accessBefore.body.data.can_unlock).toBe(true);
+
+    const unlockRes = await request(app)
+      .post(`/api/messages/unlock/${userBId}`)
+      .set("Authorization", `Bearer ${tokenA}`);
+
+    expect(unlockRes.status).toBe(200);
+    expect(unlockRes.body.data.unlocked).toBe(true);
+    expect(unlockRes.body.data.points_spent).toBe(CHAT_UNLOCK_COST);
+
     const res = await request(app)
       .post(`/api/messages/${userBId}`)
       .set("Authorization", `Bearer ${tokenA}`)
