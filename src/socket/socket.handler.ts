@@ -98,7 +98,12 @@ export class SocketHandler {
         }
 
         this.notificationService
-          .notifyNewMessage(receiver_id, message.sender.full_name, content)
+          .notifyNewMessage(
+            receiver_id,
+            message.sender.full_name,
+            content,
+            message.sender_id
+          )
           .catch(console.error);
 
         socket.emit("message_sent", {

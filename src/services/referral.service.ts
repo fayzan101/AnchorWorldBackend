@@ -6,10 +6,14 @@ import { ReferralStatus } from "../entities/Referral.entity";
 import { PointAmounts, PointTypes } from "../constants/point-types";
 import { config } from "../config/environment";
 
-function generateReferralCode(seed: string): string {
-  const clean = seed.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${clean || "ANCH"}${rand}`.slice(0, 8);
+/** Random 8-char invite code (no ambiguous I/O/0/1). */
+function generateReferralCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return code;
 }
 
 export class ReferralService {
@@ -27,13 +31,21 @@ export class ReferralService {
     this.pointsService = pointsService ?? new PointsService();
   }
 
+  /** Assign a code if missing (e.g. on register). Does not rotate an existing code. */
   async ensureReferralCode(userId: string): Promise<string> {
     const user = await this.userRepository.findById(userId);
     if (!user) throw new AppError("User not found", 404);
     if (user.referral_code) return user.referral_code;
+    return this.rotateReferralCode(userId);
+  }
 
-    for (let i = 0; i < 8; i++) {
-      const code = generateReferralCode(user.full_name || user.email || "USER");
+  /** Always mint a new unique invite code for the user (invalidates previous). */
+  async rotateReferralCode(userId: string): Promise<string> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new AppError("User not found", 404);
+
+    for (let i = 0; i < 12; i++) {
+      const code = generateReferralCode();
       try {
         await this.userRepository.update(userId, { referral_code: code } as any);
         return code;
@@ -44,8 +56,12 @@ export class ReferralService {
     throw new AppError("Could not generate referral code", 500);
   }
 
-  async getMine(userId: string) {
-    const code = await this.ensureReferralCode(userId);
+  /** Fresh invite code on each open of Invite & earn (default rotate=true). */
+  async getMine(userId: string, options?: { rotate?: boolean }) {
+    const rotate = options?.rotate !== false;
+    const code = rotate
+      ? await this.rotateReferralCode(userId)
+      : await this.ensureReferralCode(userId);
     const counts = await this.referralRepository.countByReferrer(userId);
     const rows = await this.referralRepository.findByReferrer(userId);
     const base = (config.frontend.url || "https://app.anchorworld.org").replace(/\/$/, "");

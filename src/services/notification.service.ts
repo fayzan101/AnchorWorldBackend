@@ -155,26 +155,35 @@ export class NotificationService {
   async notifyNewMessage(
     receiverId: string,
     senderName: string,
-    messagePreview: string
+    messagePreview: string,
+    senderId: string
   ): Promise<boolean> {
     const body =
       messagePreview.length > 100
         ? messagePreview.substring(0, 100) + "..."
         : messagePreview;
 
+    const data = {
+      screen: "Chat",
+      senderId,
+      sender_id: senderId,
+      senderName,
+      peerId: senderId,
+    };
+
     await this.persistNotification(
       receiverId,
       `New message from ${senderName}`,
       body,
       NotificationType.NEW_MESSAGE,
-      { screen: "Chat" }
+      data
     );
 
     return await this.sendToUser(receiverId, {
       title: `New message from ${senderName}`,
       body,
       type: NotificationType.NEW_MESSAGE,
-      data: { screen: "Chat" },
+      data,
     });
   }
 
