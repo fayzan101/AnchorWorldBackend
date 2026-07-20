@@ -1,8 +1,10 @@
 import { AppDataSource } from '../config/database';
 import { Message } from '../entities/Message.entity';
+import { MessageHide } from '../entities/MessageHide.entity';
 
 export class MessageRepository {
   private repository = AppDataSource.getRepository(Message);
+  private hideRepository = AppDataSource.getRepository(MessageHide);
 
   async create(
     senderId: string,
@@ -42,6 +44,13 @@ export class MessageRepository {
         '(message.sender_id = :user1Id AND message.receiver_id = :user2Id) OR (message.sender_id = :user2Id AND message.receiver_id = :user1Id)',
         { user1Id, user2Id }
       )
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM message_hides mh
+          WHERE mh.message_id = message.id AND mh.user_id = :viewerId
+        )`,
+        { viewerId: user1Id }
+      )
       .orderBy('message.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -67,21 +76,33 @@ export class MessageRepository {
         is_read: true,
         read_at: new Date(),
       })
-      .where('sender_id = :senderId AND receiver_id = :receiverId AND is_read = :isRead', {
-        senderId,
-        receiverId,
-        isRead: false,
-      })
+      .where(
+        'sender_id = :senderId AND receiver_id = :receiverId AND is_read = :isRead AND deleted_at IS NULL',
+        {
+          senderId,
+          receiverId,
+          isRead: false,
+        }
+      )
       .execute();
   }
 
   async getUnreadCount(receiverId: string, senderId?: string): Promise<number> {
     const query = this.repository
       .createQueryBuilder('message')
-      .where('message.receiver_id = :receiverId AND message.is_read = :isRead', {
-        receiverId,
-        isRead: false,
-      });
+      .where(
+        'message.receiver_id = :receiverId AND message.is_read = :isRead AND message.deleted_at IS NULL',
+        {
+          receiverId,
+          isRead: false,
+        }
+      )
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM message_hides mh
+          WHERE mh.message_id = message.id AND mh.user_id = :receiverId
+        )`
+      );
 
     if (senderId) {
       query.andWhere('message.sender_id = :senderId', { senderId });
@@ -90,8 +111,29 @@ export class MessageRepository {
     return await query.getCount();
   }
 
+  async hideForUser(messageId: string, userId: string): Promise<void> {
+    const existing = await this.hideRepository.findOne({
+      where: { message_id: messageId, user_id: userId },
+    });
+    if (existing) return;
+    await this.hideRepository.save(
+      this.hideRepository.create({ message_id: messageId, user_id: userId })
+    );
+  }
+
+  async softDeleteForEveryone(
+    messageId: string,
+    deletedByUserId: string
+  ): Promise<Message | null> {
+    await this.repository.update(messageId, {
+      deleted_at: new Date(),
+      deleted_by_user_id: deletedByUserId,
+      content: '',
+    });
+    return await this.findById(messageId);
+  }
+
   async getConversations(userId: string): Promise<any[]> {
-    // Latest message per peer by created_at (not MAX(id) — UUIDs are not time-ordered).
     const query = `
       SELECT 
         latest.peer_id as user_id,
@@ -99,16 +141,22 @@ export class MessageRepository {
         u.profile_picture,
         u.is_online,
         u.last_seen,
-        m.content as last_message_content,
+        CASE WHEN m.deleted_at IS NOT NULL THEN NULL ELSE m.content END as last_message_content,
         m.created_at as last_message_time,
         m.is_read as last_message_is_read,
         m.sender_id as last_message_sender_id,
+        m.deleted_at as last_message_deleted_at,
         (
           SELECT COUNT(*) 
           FROM messages 
           WHERE receiver_id = ?
             AND sender_id = latest.peer_id 
             AND is_read = false
+            AND deleted_at IS NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM message_hides mh
+              WHERE mh.message_id = messages.id AND mh.user_id = ?
+            )
         ) as unread_count
       FROM (
         SELECT 
@@ -118,7 +166,11 @@ export class MessageRepository {
           END as peer_id,
           MAX(created_at) as max_time
         FROM messages
-        WHERE sender_id = ? OR receiver_id = ?
+        WHERE (sender_id = ? OR receiver_id = ?)
+          AND NOT EXISTS (
+            SELECT 1 FROM message_hides mh
+            WHERE mh.message_id = messages.id AND mh.user_id = ?
+          )
         GROUP BY peer_id
       ) latest
       INNER JOIN messages m ON m.id = (
@@ -129,6 +181,10 @@ export class MessageRepository {
             (m2.sender_id = ? AND m2.receiver_id = latest.peer_id)
             OR (m2.receiver_id = ? AND m2.sender_id = latest.peer_id)
           )
+          AND NOT EXISTS (
+            SELECT 1 FROM message_hides mh
+            WHERE mh.message_id = m2.id AND mh.user_id = ?
+          )
         ORDER BY m2.created_at DESC, m2.id DESC
         LIMIT 1
       )
@@ -137,6 +193,9 @@ export class MessageRepository {
     `;
 
     return await this.repository.query(query, [
+      userId,
+      userId,
+      userId,
       userId,
       userId,
       userId,

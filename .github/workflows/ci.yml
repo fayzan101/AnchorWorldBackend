@@ -24,16 +24,14 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
-        run: npm run typecheck
-
+      # Build already typechecks via tsc — skip separate typecheck to save ~1-2 min
       - name: Unit tests
-        run: npm test
+        run: npm test -- --maxWorkers=2
 
       - name: Build
         run: npm run build
@@ -77,7 +75,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Run migrations
         run: |

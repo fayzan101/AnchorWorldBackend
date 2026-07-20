@@ -40,6 +40,13 @@ router.get('/chat-access/:userId', messageController.getChatAccess);
 router.post('/unlock/:userId', messageLimiter, messageController.unlockChat);
 
 /**
+ * @route   DELETE /api/messages/item/:messageId
+ * @desc    Delete a message (scope=me|everyone)
+ * @access  Private
+ */
+router.delete('/item/:messageId', messageLimiter, messageController.deleteMessage);
+
+/**
  * @route   GET /api/messages/:userId
  * @desc    Get chat history with a user
  * @access  Private

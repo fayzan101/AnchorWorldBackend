@@ -35,6 +35,13 @@ export class Message {
   @Column({ type: 'timestamp', nullable: true })
   read_at: Date | null;
 
+  /** Soft-delete for everyone (WhatsApp-style). */
+  @Column({ type: 'timestamp', nullable: true })
+  deleted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  deleted_by_user_id: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

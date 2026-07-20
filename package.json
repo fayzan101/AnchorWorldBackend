@@ -22,7 +22,8 @@
     "lint": "eslint . --ext .ts",
     "test": "jest",
     "test:integration": "jest --testPathPatterns=integration --runInBand",
-    "seed:circles": "ts-node src/scripts/seed-circles.ts"
+    "seed:circles": "ts-node src/scripts/seed-circles.ts",
+    "seed:circles:prod": "node dist/scripts/seed-circles.js"
   },
   "keywords": [
     "anchor",

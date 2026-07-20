@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { MessageService } from '../services/message.service';
 import { ResponseUtil } from '../utils/response.util';
 import { AuthRequest, SendMessageDto, PaginationQuery } from '../types';
+import { emitToUser } from '../services/socket-event.service';
 
 export class MessageController {
   private messageService: MessageService;
@@ -110,6 +111,31 @@ export class MessageController {
       const { userId: otherUserId } = req.params;
       const result = await this.messageService.unlockChat(userId, otherUserId);
       ResponseUtil.success(res, result, 'Chat unlocked');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteMessage = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { messageId } = req.params;
+      const scopeRaw = (req.query.scope as string)?.toLowerCase() || 'me';
+      const scope = scopeRaw === 'everyone' ? 'everyone' : 'me';
+
+      const result = await this.messageService.deleteMessage(userId, messageId, scope);
+
+      if (result.scope === 'everyone' && result.sender_id && result.receiver_id) {
+        const payload = {
+          message_id: result.id,
+          scope: 'everyone',
+          deleted_at: result.deleted_at,
+        };
+        emitToUser(result.sender_id, 'message_deleted', payload);
+        emitToUser(result.receiver_id, 'message_deleted', payload);
+      }
+
+      ResponseUtil.success(res, result, scope === 'everyone' ? 'Message deleted for everyone' : 'Message deleted for you');
     } catch (error) {
       next(error);
     }

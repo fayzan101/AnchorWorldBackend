@@ -23,6 +23,7 @@ import { ContentReport } from "../entities/ContentReport.entity";
 import { ModerationAction } from "../entities/ModerationAction.entity";
 import { Referral } from "../entities/Referral.entity";
 import { ChatUnlock } from "../entities/ChatUnlock.entity";
+import { MessageHide } from "../entities/MessageHide.entity";
 import { CommunityUserFields1719000000001 } from "../migrations/1719000000001-CommunityUserFields";
 import { InitialSchema1719000000000 } from "../migrations/1719000000000-InitialSchema";
 import { PointsTables1719000000002 } from "../migrations/1719000000002-PointsTables";
@@ -37,6 +38,8 @@ import { PremiumProductId1719000000010 } from "../migrations/1719000000010-Premi
 import { Referrals1719000000011 } from "../migrations/1719000000011-Referrals";
 import { BasicPlanChatUnlockCallType1719000000012 } from "../migrations/1719000000012-BasicPlanChatUnlockCallType";
 import { WidenPointTransactionReferenceId1719000000013 } from "../migrations/1719000000013-WidenPointTransactionReferenceId";
+import { MessageReplyTo1719000000014 } from "../migrations/1719000000014-MessageReplyTo";
+import { MessageSoftDelete1719000000015 } from "../migrations/1719000000015-MessageSoftDelete";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -51,6 +54,7 @@ export const AppDataSource = new DataSource({
     User,
     Follow,
     Message,
+    MessageHide,
     RefreshToken,
     Like,
     Notification,
@@ -86,6 +90,8 @@ export const AppDataSource = new DataSource({
     Referrals1719000000011,
     BasicPlanChatUnlockCallType1719000000012,
     WidenPointTransactionReferenceId1719000000013,
+    MessageReplyTo1719000000014,
+    MessageSoftDelete1719000000015,
   ],
   subscribers: [],
   charset: "utf8mb4",

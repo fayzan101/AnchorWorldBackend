@@ -345,27 +345,40 @@ export class MessageService {
       limit
     );
 
-    const items = messages.map((message) => ({
-      id: message.id,
-      sender_id: message.sender_id,
-      receiver_id: message.receiver_id,
-      content: message.content,
-      is_read: message.is_read,
-      read_at: message.read_at,
-      created_at: message.created_at,
-      reply_to_message_id: message.reply_to_message_id,
-      reply_to: message.reply_to
-        ? {
-            id: message.reply_to.id,
-            content: message.reply_to.content,
-            sender_id: message.reply_to.sender_id,
-          }
-        : null,
-      sender: {
-        full_name: message.sender.full_name,
-        profile_picture: message.sender.profile_picture,
-      },
-    }));
+    const items = messages.map((message) => {
+      const deletedForEveryone = !!message.deleted_at;
+      return {
+        id: message.id,
+        sender_id: message.sender_id,
+        receiver_id: message.receiver_id,
+        content: deletedForEveryone ? "" : message.content,
+        is_read: message.is_read,
+        read_at: message.read_at,
+        created_at: message.created_at,
+        deleted_for_everyone: deletedForEveryone,
+        deleted_at: message.deleted_at,
+        reply_to_message_id: message.reply_to_message_id,
+        reply_to:
+          message.reply_to && !message.reply_to.deleted_at
+            ? {
+                id: message.reply_to.id,
+                content: message.reply_to.content,
+                sender_id: message.reply_to.sender_id,
+              }
+            : message.reply_to
+              ? {
+                  id: message.reply_to.id,
+                  content: "",
+                  sender_id: message.reply_to.sender_id,
+                  deleted_for_everyone: true,
+                }
+              : null,
+        sender: {
+          full_name: message.sender.full_name,
+          profile_picture: message.sender.profile_picture,
+        },
+      };
+    });
 
     return {
       items,
@@ -419,16 +432,77 @@ export class MessageService {
         is_online: conv.is_online,
         last_seen: conv.last_seen,
       },
-      last_message: conv.last_message_content
+      last_message: conv.last_message_deleted_at
         ? {
-            content: conv.last_message_content,
+            content: "Message deleted",
             created_at: conv.last_message_time,
             is_read: conv.last_message_is_read,
             is_sent_by_me: conv.last_message_sender_id === userId,
+            deleted_for_everyone: true,
           }
-        : null,
+        : conv.last_message_content
+          ? {
+              content: conv.last_message_content,
+              created_at: conv.last_message_time,
+              is_read: conv.last_message_is_read,
+              is_sent_by_me: conv.last_message_sender_id === userId,
+            }
+          : null,
       unread_count: parseInt(conv.unread_count),
     }));
+  }
+
+  async deleteMessage(
+    userId: string,
+    messageId: string,
+    scope: "me" | "everyone"
+  ) {
+    const message = await this.messageRepository.findById(messageId);
+    if (!message) {
+      throw new AppError("Message not found", 404);
+    }
+
+    const isParticipant =
+      message.sender_id === userId || message.receiver_id === userId;
+    if (!isParticipant) {
+      throw new AppError("Not authorized to delete this message", 403);
+    }
+
+    if (scope === "everyone") {
+      if (message.sender_id !== userId) {
+        throw new AppError("Only the sender can delete for everyone", 403);
+      }
+      if (message.deleted_at) {
+        return {
+          id: message.id,
+          scope: "everyone" as const,
+          deleted_at: message.deleted_at,
+          already_deleted: true,
+          sender_id: message.sender_id,
+          receiver_id: message.receiver_id,
+        };
+      }
+      const updated = await this.messageRepository.softDeleteForEveryone(
+        messageId,
+        userId
+      );
+      return {
+        id: messageId,
+        scope: "everyone" as const,
+        deleted_at: updated!.deleted_at,
+        sender_id: message.sender_id,
+        receiver_id: message.receiver_id,
+      };
+    }
+
+    // delete for me
+    await this.messageRepository.hideForUser(messageId, userId);
+    return {
+      id: messageId,
+      scope: "me" as const,
+      sender_id: message.sender_id,
+      receiver_id: message.receiver_id,
+    };
   }
 
   async deleteConversation(userId: string, otherUserId: string) {
