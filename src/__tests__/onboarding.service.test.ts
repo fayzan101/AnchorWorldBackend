@@ -5,6 +5,7 @@ import { CircleRepository } from "../repositories/circle.repository";
 import { CircleService } from "../services/circle.service";
 import { PointsService } from "../services/points.service";
 import { PostService } from "../services/post.service";
+import { ReferralService } from "../services/referral.service";
 import { User } from "../entities/User.entity";
 import { Hobby } from "../entities/Hobbies.entity";
 import { PointTypes, PointAmounts } from "../constants/point-types";
@@ -17,6 +18,7 @@ describe("OnboardingService", () => {
   let circleService: jest.Mocked<CircleService>;
   let pointsService: jest.Mocked<PointsService>;
   let postService: jest.Mocked<PostService>;
+  let referralService: jest.Mocked<ReferralService>;
   let service: OnboardingService;
 
   const createBaseUser = () =>
@@ -63,13 +65,21 @@ describe("OnboardingService", () => {
       countUserPosts: jest.fn(),
     } as unknown as jest.Mocked<PostService>;
 
+    referralService = {
+      completeForUser: jest.fn().mockResolvedValue({
+        referee_awarded: 0,
+        referrer_awarded: 0,
+      }),
+    } as unknown as jest.Mocked<ReferralService>;
+
     service = new OnboardingService(
       userRepository,
       hobbyRepository,
       circleRepository,
       circleService,
       pointsService,
-      postService
+      postService,
+      referralService
     );
   });
 
