@@ -4,19 +4,26 @@ import { Message } from '../entities/Message.entity';
 export class MessageRepository {
   private repository = AppDataSource.getRepository(Message);
 
-  async create(senderId: string, receiverId: string, content: string): Promise<Message> {
+  async create(
+    senderId: string,
+    receiverId: string,
+    content: string,
+    replyToMessageId?: string | null
+  ): Promise<Message> {
     const message = this.repository.create({
       sender_id: senderId,
       receiver_id: receiverId,
       content,
+      reply_to_message_id: replyToMessageId ?? null,
     });
-    return await this.repository.save(message);
+    const saved = await this.repository.save(message);
+    return (await this.findById(saved.id))!;
   }
 
   async findById(id: string): Promise<Message | null> {
     return await this.repository.findOne({
       where: { id },
-      relations: ['sender', 'receiver'],
+      relations: ['sender', 'receiver', 'reply_to'],
     });
   }
 
@@ -30,6 +37,7 @@ export class MessageRepository {
       .createQueryBuilder('message')
       .leftJoinAndSelect('message.sender', 'sender')
       .leftJoinAndSelect('message.receiver', 'receiver')
+      .leftJoinAndSelect('message.reply_to', 'reply_to')
       .where(
         '(message.sender_id = :user1Id AND message.receiver_id = :user2Id) OR (message.sender_id = :user2Id AND message.receiver_id = :user1Id)',
         { user1Id, user2Id }

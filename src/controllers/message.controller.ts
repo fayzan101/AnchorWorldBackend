@@ -14,9 +14,14 @@ export class MessageController {
     try {
       const senderId = req.user!.id;
       const { userId } = req.params;
-      const { content }: SendMessageDto = req.body;
+      const { content, reply_to_message_id }: SendMessageDto = req.body;
       
-      const message = await this.messageService.sendMessage(senderId, userId, content);
+      const message = await this.messageService.sendMessage(
+        senderId,
+        userId,
+        content,
+        reply_to_message_id
+      );
       ResponseUtil.created(res, message, 'Message sent successfully');
     } catch (error) {
       next(error);

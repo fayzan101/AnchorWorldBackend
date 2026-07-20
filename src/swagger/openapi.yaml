@@ -2816,6 +2816,10 @@ components:
         content:
           type: string
           maxLength: 5000
+        reply_to_message_id:
+          type: string
+          format: uuid
+          nullable: true
 
     Message:
       type: object
@@ -2831,6 +2835,22 @@ components:
           format: uuid
         content:
           type: string
+        reply_to_message_id:
+          type: string
+          format: uuid
+          nullable: true
+        reply_to:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            content:
+              type: string
+            sender_id:
+              type: string
+              format: uuid
         is_read:
           type: boolean
         read_at:

@@ -11,8 +11,9 @@ import { AuthenticatedSocket } from "../middleware/socket.middleware";
 import { NotificationService } from "../services/notification.service";
 import { userRoom } from "../services/socket-event.service";
 
-// Store online users: userId -> socketId
-const onlineUsers = new Map<string, string>();
+/** userId -> set of active socket ids (supports multi-device). */
+const onlineUsers = new Map<string, Set<string>>();
+const offlineTimers = new Map<string, NodeJS.Timeout>();
 
 export class SocketHandler {
   private io: Server;
@@ -31,19 +32,27 @@ export class SocketHandler {
     const userId = socket.user!.id;
     console.log(`User connected: ${userId} - ${socket.user!.email}`);
 
-    // Store user's socket ID
-    onlineUsers.set(userId, socket.id);
+    const pendingOffline = offlineTimers.get(userId);
+    if (pendingOffline) {
+      clearTimeout(pendingOffline);
+      offlineTimers.delete(userId);
+    }
 
-    // Join personal room for targeted real-time events
+    let sockets = onlineUsers.get(userId);
+    const becameOnline = !sockets || sockets.size === 0;
+    if (!sockets) {
+      sockets = new Set();
+      onlineUsers.set(userId, sockets);
+    }
+    sockets.add(socket.id);
+
     socket.join(userRoom(userId));
 
-    // Update user's online status
-    this.userService.updateOnlineStatus(userId, true).catch(console.error);
+    if (becameOnline) {
+      this.userService.updateOnlineStatus(userId, true).catch(console.error);
+      this.broadcastOnlineStatus(userId, true);
+    }
 
-    // Notify user's connections that they're online
-    this.broadcastOnlineStatus(userId, true);
-
-    // Set up event handlers
     this.handleSendMessage(socket);
     this.handleTyping(socket);
     this.handleMarkAsRead(socket);
@@ -51,49 +60,59 @@ export class SocketHandler {
     this.handleDisconnect(socket);
   }
 
+  private emitToUser(userId: string, event: string, payload: unknown): void {
+    const sockets = onlineUsers.get(userId);
+    if (!sockets) return;
+    for (const sid of sockets) {
+      this.io.to(sid).emit(event, payload);
+    }
+  }
+
   private handleSendMessage(socket: AuthenticatedSocket): void {
     socket.on("send_message", async (data: SendMessageEvent) => {
+      const clientMessageId = data.client_message_id || data.message_id;
       try {
         const senderId = socket.user!.id;
-        const { receiver_id, content } = data;
+        const { receiver_id, content, reply_to_message_id } = data;
 
-        // Save message to database
         const message = await this.messageService.sendMessage(
           senderId,
           receiver_id,
-          content
+          content,
+          reply_to_message_id
         );
 
-        // Check if receiver is online
-        const receiverSocketId = onlineUsers.get(receiver_id);
-        if (receiverSocketId) {
-          const newMessageEvent: NewMessageEvent = {
-            id: message.id,
-            sender_id: message.sender_id,
-            receiver_id: message.receiver_id,
-            content: message.content,
-            created_at: message.created_at,
-            sender: message.sender,
-          };
-          this.io.to(receiverSocketId).emit("new_message", newMessageEvent);
-          this.notificationService
-            .notifyNewMessage(receiver_id, message.sender.full_name, content)
-            .catch(console.error);
-        } else {
-          // Receiver is offline - send push notification
-          this.notificationService
-            .notifyNewMessage(receiver_id, message.sender.full_name, content)
-            .catch(console.error);
+        const newMessageEvent: NewMessageEvent = {
+          id: message.id,
+          sender_id: message.sender_id,
+          receiver_id: message.receiver_id,
+          content: message.content,
+          created_at: message.created_at,
+          reply_to_message_id: message.reply_to_message_id,
+          reply_to: message.reply_to,
+          sender: message.sender,
+        };
+
+        if (this.isUserOnline(receiver_id)) {
+          this.emitToUser(receiver_id, "new_message", newMessageEvent);
         }
 
-        // Confirm to sender
-        socket.emit("message_sent", { success: true, message });
+        this.notificationService
+          .notifyNewMessage(receiver_id, message.sender.full_name, content)
+          .catch(console.error);
+
+        socket.emit("message_sent", {
+          success: true,
+          message,
+          client_message_id: clientMessageId ?? null,
+        });
       } catch (error) {
         console.error("Error sending message:", error);
         socket.emit("message_error", {
           success: false,
           error:
             error instanceof Error ? error.message : "Failed to send message",
+          client_message_id: clientMessageId ?? null,
         });
       }
     });
@@ -103,27 +122,19 @@ export class SocketHandler {
     socket.on("typing_start", (data: TypingEvent) => {
       const senderId = socket.user!.id;
       const { receiver_id } = data;
-
-      const receiverSocketId = onlineUsers.get(receiver_id);
-      if (receiverSocketId) {
-        this.io.to(receiverSocketId).emit("user_typing", {
-          user_id: senderId,
-          is_typing: true,
-        });
-      }
+      this.emitToUser(receiver_id, "user_typing", {
+        user_id: senderId,
+        is_typing: true,
+      });
     });
 
     socket.on("typing_stop", (data: TypingEvent) => {
       const senderId = socket.user!.id;
       const { receiver_id } = data;
-
-      const receiverSocketId = onlineUsers.get(receiver_id);
-      if (receiverSocketId) {
-        this.io.to(receiverSocketId).emit("user_typing", {
-          user_id: senderId,
-          is_typing: false,
-        });
-      }
+      this.emitToUser(receiver_id, "user_typing", {
+        user_id: senderId,
+        is_typing: false,
+      });
     });
   }
 
@@ -138,14 +149,10 @@ export class SocketHandler {
           userId
         );
 
-        // Notify sender that message was read
-        const senderSocketId = onlineUsers.get(message.sender_id);
-        if (senderSocketId) {
-          this.io.to(senderSocketId).emit("message_read", {
-            message_id: message.id,
-            read_at: message.read_at,
-          });
-        }
+        this.emitToUser(message.sender_id, "message_read", {
+          message_id: message.id,
+          read_at: message.read_at,
+        });
       } catch (error) {
         console.error("Error marking message as read:", error);
       }
@@ -153,33 +160,44 @@ export class SocketHandler {
   }
 
   private handleDisconnect(socket: AuthenticatedSocket): void {
-    socket.on("disconnect", async () => {
+    socket.on("disconnect", () => {
       const userId = socket.user!.id;
       console.log(`User disconnected: ${userId}`);
 
-      // Remove from online users
-      onlineUsers.delete(userId);
-
-      // Update user's online status
-      await this.userService.updateOnlineStatus(userId, false);
-
-      // Notify user's connections that they're offline
-      this.broadcastOnlineStatus(userId, false);
+      const sockets = onlineUsers.get(userId);
+      if (sockets) {
+        sockets.delete(socket.id);
+        if (sockets.size === 0) {
+          onlineUsers.delete(userId);
+          const existing = offlineTimers.get(userId);
+          if (existing) clearTimeout(existing);
+          // Debounce offline so brief reconnects don't flicker status.
+          const timer = setTimeout(() => {
+            offlineTimers.delete(userId);
+            if (this.isUserOnline(userId)) return;
+            this.userService
+              .updateOnlineStatus(userId, false)
+              .catch(console.error);
+            this.broadcastOnlineStatus(userId, false);
+          }, 1500);
+          offlineTimers.set(userId, timer);
+        }
+      }
     });
   }
 
   private broadcastOnlineStatus(userId: string, isOnline: boolean): void {
-    // In a production app, fetch the user's connections and notify them
-    // For now, we'll broadcast to all connected users
-    this.io.emit("user_status_changed", {
+    const payload = {
       user_id: userId,
       is_online: isOnline,
       last_seen: isOnline ? null : new Date(),
-    });
+    };
+    // Targeted subscribers (chat presence) + global for lists.
+    this.io.to(`status:${userId}`).emit("user_status_changed", payload);
+    this.io.emit("user_status_changed", payload);
   }
 
   private handlePresence(socket: AuthenticatedSocket): void {
-    // Handle get_user_status - single user status request
     socket.on("get_user_status", async (data: { user_id: string }) => {
       try {
         const { user_id } = data;
@@ -187,7 +205,6 @@ export class SocketHandler {
 
         let lastSeen = null;
         if (!isOnline) {
-          // Fetch last_seen from database for offline users
           const user = await this.userService.getUserById(user_id);
           lastSeen = user?.last_seen || null;
         }
@@ -202,7 +219,6 @@ export class SocketHandler {
       }
     });
 
-    // Handle subscribe_user_status - subscribe to status updates
     socket.on("subscribe_user_status", async (data: { user_id: string }) => {
       try {
         const { user_id } = data;
@@ -214,34 +230,30 @@ export class SocketHandler {
           lastSeen = user?.last_seen || null;
         }
 
-        // Send initial status immediately
         socket.emit("user_status_initial", {
           user_id,
           is_online: isOnline,
           last_seen: lastSeen,
         });
 
-        // Optionally: Add socket to a room for targeted updates
         socket.join(`status:${user_id}`);
       } catch (error) {
         console.error("Error subscribing to user status:", error);
       }
     });
 
-    // Handle unsubscribe
     socket.on("unsubscribe_user_status", (data: { user_id: string }) => {
       const { user_id } = data;
       socket.leave(`status:${user_id}`);
     });
   }
 
-  // Method to get online users (useful for debugging)
-  getOnlineUsers(): Map<string, string> {
+  getOnlineUsers(): Map<string, Set<string>> {
     return onlineUsers;
   }
 
-  // Method to check if user is online
   isUserOnline(userId: string): boolean {
-    return onlineUsers.has(userId);
+    const sockets = onlineUsers.get(userId);
+    return !!sockets && sockets.size > 0;
   }
 }

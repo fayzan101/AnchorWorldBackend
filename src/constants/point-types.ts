@@ -18,7 +18,7 @@ export const PointTypes = {
 } as const;
 
 /** Points the initiator spends to unlock a free-tier chat pair. */
-export const CHAT_UNLOCK_COST = 20;
+export const CHAT_UNLOCK_COST = 50;
 /** Max chat partners a free user may unlock with points. */
 export const FREE_CHAT_UNLOCK_MAX = 2;
 

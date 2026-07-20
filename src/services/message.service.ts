@@ -245,13 +245,43 @@ export class MessageService {
     }
   }
 
-  async sendMessage(senderId: string, receiverId: string, content: string) {
+  async sendMessage(
+    senderId: string,
+    receiverId: string,
+    content: string,
+    replyToMessageId?: string | null
+  ) {
     await this.assertCanMessage(senderId, receiverId);
+
+    let replyPreview: {
+      id: string;
+      content: string;
+      sender_id: string;
+    } | null = null;
+
+    if (replyToMessageId) {
+      const parent = await this.messageRepository.findById(replyToMessageId);
+      if (!parent) {
+        throw new AppError("Reply target message not found", 404);
+      }
+      const sameThread =
+        (parent.sender_id === senderId && parent.receiver_id === receiverId) ||
+        (parent.sender_id === receiverId && parent.receiver_id === senderId);
+      if (!sameThread) {
+        throw new AppError("Can only reply to messages in this conversation", 400);
+      }
+      replyPreview = {
+        id: parent.id,
+        content: parent.content,
+        sender_id: parent.sender_id,
+      };
+    }
 
     const message = await this.messageRepository.create(
       senderId,
       receiverId,
-      content
+      content,
+      replyToMessageId ?? null
     );
 
     const sender = await this.userRepository.findById(senderId);
@@ -263,6 +293,8 @@ export class MessageService {
       content: message.content,
       is_read: message.is_read,
       created_at: message.created_at,
+      reply_to_message_id: message.reply_to_message_id,
+      reply_to: replyPreview,
       sender: {
         full_name: sender!.full_name,
         profile_picture: sender!.profile_picture,
@@ -321,6 +353,14 @@ export class MessageService {
       is_read: message.is_read,
       read_at: message.read_at,
       created_at: message.created_at,
+      reply_to_message_id: message.reply_to_message_id,
+      reply_to: message.reply_to
+        ? {
+            id: message.reply_to.id,
+            content: message.reply_to.content,
+            sender_id: message.reply_to.sender_id,
+          }
+        : null,
       sender: {
         full_name: message.sender.full_name,
         profile_picture: message.sender.profile_picture,

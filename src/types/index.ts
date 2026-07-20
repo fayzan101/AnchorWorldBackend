@@ -59,6 +59,7 @@ export interface UpdateProfileDto {
 
 export interface SendMessageDto {
   content: string;
+  reply_to_message_id?: string;
 }
 
 export interface PaginationQuery {
@@ -125,6 +126,9 @@ export interface TypingEvent {
 export interface SendMessageEvent {
   receiver_id: string;
   content: string;
+  reply_to_message_id?: string;
+  message_id?: string;
+  client_message_id?: string;
 }
 
 export interface MarkAsReadEvent {
@@ -143,6 +147,12 @@ export interface NewMessageEvent {
   receiver_id: string;
   content: string;
   created_at: Date;
+  reply_to_message_id?: string | null;
+  reply_to?: {
+    id: string;
+    content: string;
+    sender_id: string;
+  } | null;
   sender: {
     full_name: string;
     profile_picture: string | null;

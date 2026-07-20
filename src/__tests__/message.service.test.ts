@@ -110,7 +110,8 @@ describe("MessageService", () => {
     expect(messageRepository.create).toHaveBeenCalledWith(
       senderId,
       receiverId,
-      "Hello"
+      "Hello",
+      null
     );
     expect(chatUnlockRepository.isUnlocked).toHaveBeenCalledWith(
       senderId,

@@ -42,7 +42,7 @@ describe("MessageService chat unlock", () => {
     } as unknown as jest.Mocked<ChatUnlockRepository>;
     pointsService = {
       getBalance: jest.fn().mockResolvedValue({ balance: 250, lifetime_earned: 250 }),
-      spendPoints: jest.fn().mockResolvedValue({ balance: 230, spent: 20 }),
+      spendPoints: jest.fn().mockResolvedValue({ balance: 200, spent: 50 }),
     } as unknown as jest.Mocked<PointsService>;
     premiumService = {
       ensurePlansActive: jest.fn().mockResolvedValue({
@@ -106,14 +106,14 @@ describe("MessageService chat unlock", () => {
 
     expect(pointsService.spendPoints).toHaveBeenCalledWith(
       userId,
-      20,
+      50,
       PointTypes.CHAT_UNLOCK_SPENT,
       expect.stringContaining("chat_unlock:"),
       "Chat unlock"
     );
     expect(chatUnlockRepository.createUnlock).toHaveBeenCalled();
     expect(result.unlocked).toBe(true);
-    expect(result.points_spent).toBe(20);
+    expect(result.points_spent).toBe(50);
   });
 
   it("rejects unlock when slot limit reached", async () => {

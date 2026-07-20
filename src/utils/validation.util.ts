@@ -113,6 +113,10 @@ export class ValidationUtil {
         .withMessage("Message content is required")
         .isLength({ max: 5000 })
         .withMessage("Message must not exceed 5000 characters"),
+      body("reply_to_message_id")
+        .optional({ nullable: true })
+        .isUUID()
+        .withMessage("reply_to_message_id must be a valid UUID"),
     ];
   }
 

@@ -26,6 +26,9 @@ export class Message {
   @Column({ type: 'text' })
   content: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  reply_to_message_id: string | null;
+
   @Column({ type: 'boolean', default: false })
   is_read: boolean;
 
@@ -45,4 +48,8 @@ export class Message {
   @ManyToOne(() => User, (user) => user.received_messages, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'receiver_id' })
   receiver: User;
+
+  @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'reply_to_message_id' })
+  reply_to: Message | null;
 }
