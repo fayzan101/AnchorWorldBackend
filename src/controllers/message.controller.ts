@@ -88,6 +88,28 @@ export class MessageController {
     }
   };
 
+  getChatAccess = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { userId: otherUserId } = req.params;
+      const access = await this.messageService.getChatAccess(userId, otherUserId);
+      ResponseUtil.success(res, access);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  unlockChat = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { userId: otherUserId } = req.params;
+      const result = await this.messageService.unlockChat(userId, otherUserId);
+      ResponseUtil.success(res, result, 'Chat unlocked');
+    } catch (error) {
+      next(error);
+    }
+  };
+
   deleteConversation = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;

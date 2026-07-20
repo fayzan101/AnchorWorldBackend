@@ -12,9 +12,15 @@ export const PointTypes = {
   VIDEO_INTRO_COMPLETED: "video_intro_completed",
   VIDEO_INTRO_SPENT: "video_intro_spent",
   VIDEO_INTRO_REFUND: "video_intro_refund",
+  CHAT_UNLOCK_SPENT: "chat_unlock_spent",
   REFERRAL_REFERRER: "referral_referrer",
   REFERRAL_REFEREE: "referral_referee",
 } as const;
+
+/** Points the initiator spends to unlock a free-tier chat pair. */
+export const CHAT_UNLOCK_COST = 20;
+/** Max chat partners a free user may unlock with points. */
+export const FREE_CHAT_UNLOCK_MAX = 2;
 
 export type PointType = (typeof PointTypes)[keyof typeof PointTypes];
 

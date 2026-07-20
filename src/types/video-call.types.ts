@@ -1,8 +1,9 @@
-import { VideoCallStatus } from "../entities/VideoCall.entity";
+import { VideoCallStatus, CallType } from "../entities/VideoCall.entity";
 
 export interface VideoCallRequestDto {
   callee_id: string;
   duration_minutes: 5 | 10;
+  call_type?: "voice" | "video";
 }
 
 export interface VideoCallParticipant {
@@ -16,6 +17,7 @@ export interface VideoCallResponse {
   caller_id: string;
   callee_id: string;
   status: VideoCallStatus;
+  call_type: CallType;
   duration_minutes: number;
   points_spent: number;
   channel_name: string;
@@ -34,4 +36,5 @@ export interface VideoCallTokenResponse {
   uid: number;
   app_id: string;
   expires_at: number;
+  call_type: CallType;
 }

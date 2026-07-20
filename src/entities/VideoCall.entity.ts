@@ -19,6 +19,11 @@ export enum VideoCallStatus {
   MISSED = "missed",
 }
 
+export enum CallType {
+  VOICE = "voice",
+  VIDEO = "video",
+}
+
 @Entity("video_calls")
 @Index(["caller_id", "created_at"])
 @Index(["callee_id", "created_at"])
@@ -39,6 +44,13 @@ export class VideoCall {
     default: VideoCallStatus.PENDING,
   })
   status: VideoCallStatus;
+
+  @Column({
+    type: "enum",
+    enum: CallType,
+    default: CallType.VIDEO,
+  })
+  call_type: CallType;
 
   @Column({ type: "int" })
   duration_minutes: number;

@@ -61,6 +61,8 @@ export const config = {
     apiKey: process.env.REVENUECAT_API_KEY || "",
     webhookSecret: process.env.REVENUECAT_WEBHOOK_SECRET || "",
     entitlementId: process.env.REVENUECAT_ENTITLEMENT_ID || "premium",
+    basicEntitlementId:
+      process.env.REVENUECAT_BASIC_ENTITLEMENT_ID || "basic",
   },
   admin: {
     userIds: (process.env.ADMIN_USER_IDS || "")

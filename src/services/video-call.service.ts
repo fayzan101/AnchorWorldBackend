@@ -6,7 +6,7 @@ import { PremiumService } from "./premium.service";
 import { AgoraService } from "./agora.service";
 import { NotificationService } from "./notification.service";
 import { AppError } from "../middleware/error.middleware";
-import { VideoCall, VideoCallStatus } from "../entities/VideoCall.entity";
+import { VideoCall, VideoCallStatus, CallType } from "../entities/VideoCall.entity";
 import { PointAmounts, PointTypes } from "../constants/point-types";
 import { isEitherBlocked } from "../utils/block.util";
 import { v4 as uuidv4 } from "uuid";
@@ -53,19 +53,29 @@ export class VideoCallService {
     data: VideoCallRequestDto
   ): Promise<VideoCallResponse> {
     const { callee_id: calleeId, duration_minutes: durationMinutes } = data;
+    const callType =
+      data.call_type === "voice" ? CallType.VOICE : CallType.VIDEO;
+    const label = callType === CallType.VOICE ? "voice" : "video";
 
     if (callerId === calleeId) {
-      throw new AppError("Cannot request a video intro with yourself", 400);
+      throw new AppError(`Cannot request a ${label} intro with yourself`, 400);
     }
 
     if (durationMinutes !== 5 && durationMinutes !== 10) {
       throw new AppError("duration_minutes must be 5 or 10", 400);
     }
 
-    const callerUser = await this.premiumService.ensurePremiumActive(callerId);
-    if (!this.premiumService.isPremiumActive(callerUser)) {
+    const callerUser = await this.premiumService.ensurePlansActive(callerId);
+    if (callType === CallType.VIDEO) {
+      if (!this.premiumService.isPremiumActive(callerUser)) {
+        throw new AppError(
+          "Premium subscription required for guided video intros",
+          403
+        );
+      }
+    } else if (!this.premiumService.isBasicActive(callerUser)) {
       throw new AppError(
-        "Premium subscription required for guided video intros",
+        "Basic subscription required for voice intros",
         403
       );
     }
@@ -80,17 +90,17 @@ export class VideoCallService {
       calleeId
     );
     if (!isConnected) {
-      throw new AppError("Video intros require a mutual connection", 403);
+      throw new AppError(`${label === "voice" ? "Voice" : "Video"} intros require a mutual connection`, 403);
     }
 
     if (await isEitherBlocked(callerId, calleeId)) {
-      throw new AppError("Cannot request a video intro with this user", 403);
+      throw new AppError(`Cannot request a ${label} intro with this user`, 403);
     }
 
     const requestsToday =
       await this.videoCallRepository.countRequestsToday(callerId);
     if (requestsToday >= MAX_REQUESTS_PER_DAY) {
-      throw new AppError("Daily video intro request limit reached", 429);
+      throw new AppError(`Daily ${label} intro request limit reached`, 429);
     }
 
     const expiresAt = new Date(Date.now() + PENDING_TTL_MS);
@@ -101,6 +111,7 @@ export class VideoCallService {
       caller_id: callerId,
       callee_id: calleeId,
       status: VideoCallStatus.PENDING,
+      call_type: callType,
       duration_minutes: durationMinutes,
       points_spent: 0,
       channel_name: callId,
@@ -238,6 +249,7 @@ export class VideoCallService {
     return {
       call_id: call.id,
       channel_name: call.channel_name,
+      call_type: call.call_type ?? CallType.VIDEO,
       ...tokenData,
     };
   }
@@ -374,6 +386,7 @@ export class VideoCallService {
       caller_id: call.caller_id,
       callee_id: call.callee_id,
       status: call.status,
+      call_type: call.call_type ?? CallType.VIDEO,
       duration_minutes: call.duration_minutes,
       points_spent: call.points_spent,
       channel_name: call.channel_name,

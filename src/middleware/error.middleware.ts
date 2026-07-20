@@ -4,15 +4,18 @@ import { config } from "../config/environment";
 export class AppError extends Error {
   statusCode: number;
   isOperational: boolean;
+  code?: string;
 
   constructor(
     message: string,
     statusCode: number = 500,
-    isOperational: boolean = true
+    isOperational: boolean = true,
+    code?: string
   ) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
+    this.code = code;
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -27,6 +30,7 @@ export const errorHandler = (
     res.status(err.statusCode).json({
       success: false,
       error: err.message,
+      ...(err.code ? { code: err.code } : {}),
       ...(config.server.nodeEnv === "development" && { stack: err.stack }),
     });
     return;
