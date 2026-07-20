@@ -1,4 +1,4 @@
-name: Deploy
+﻿name: Deploy
 
 on:
   workflow_run:
@@ -24,168 +24,49 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           script_stop: true
-          command_timeout: 20m
           script: |
             set -e
-            export NODE_ENV=production
-
             APP_DIR="${{ secrets.DEPLOY_PATH }}"
             if [ -z "$APP_DIR" ]; then APP_DIR="$HOME/repositories/anchor-backend"; fi
-            echo "→ APP_DIR=$APP_DIR"
-            cd "$APP_DIR" || { echo "cd failed: $APP_DIR" >&2; exit 1; }
-
-            # Ensure common tool paths for non-interactive SSH
-            export PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin:$PATH"
-            if [ -s "$HOME/.nvm/nvm.sh" ]; then
-              # shellcheck disable=SC1090
-              . "$HOME/.nvm/nvm.sh" || true
-            fi
-            if [ -s "$HOME/.bashrc" ]; then
-              # shellcheck disable=SC1090
-              . "$HOME/.bashrc" || true
-            fi
-
-            echo "→ node=$(command -v node || echo MISSING) npm=$(command -v npm || echo MISSING)"
-
-            PREV_SHA="$(git rev-parse HEAD 2>/dev/null || echo none)"
-            echo "→ fetching origin/master (was $PREV_SHA)"
-            git fetch origin --depth=50
+            cd "$APP_DIR"
+            git fetch origin
             git reset --hard origin/master
-            NEW_SHA="$(git rev-parse HEAD)"
-            echo "→ now at $NEW_SHA"
+            mkdir -p uploads/posts
+            chmod -R 755 uploads
 
-            echo "→ ensuring upload dirs"
-            mkdir -p uploads/posts uploads/messages
-            chmod -R u+rwX,go+rX uploads 2>/dev/null || true
-
-            file_hash() {
-              _f="$1"
-              if [ ! -f "$_f" ]; then
-                echo "missing"
-                return 0
-              fi
-              if command -v sha256sum >/dev/null 2>&1; then
-                sha256sum "$_f" | awk '{print $1}'
-                return 0
-              fi
-              if command -v shasum >/dev/null 2>&1; then
-                shasum -a 256 "$_f" | awk '{print $1}'
-                return 0
-              fi
-              if command -v md5sum >/dev/null 2>&1; then
-                md5sum "$_f" | awk '{print $1}'
-                return 0
-              fi
-              # last resort: size + mtime (still stable enough for skip heuristics)
-              wc -c < "$_f" | tr -d ' '
-            }
-
-            echo "→ checking lockfile"
-            if [ ! -f package-lock.json ]; then
-              echo "ERROR: package-lock.json not found in $APP_DIR" >&2
-              ls -la >&2 || true
-              exit 1
-            fi
-            LOCKFILE_HASH="$(file_hash package-lock.json)"
-            echo "→ lockfile hash=$LOCKFILE_HASH"
+            LOCKFILE_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
             INSTALL_HASH_FILE=".npm-ci.lockhash"
-            PREV_INSTALL_HASH="$(cat "$INSTALL_HASH_FILE" 2>/dev/null || echo)"
-            if [ ! -d node_modules ] || [ ! -f "$INSTALL_HASH_FILE" ] || [ "$LOCKFILE_HASH" != "$PREV_INSTALL_HASH" ]; then
-              echo "→ npm ci"
-              if ! command -v npm >/dev/null 2>&1; then
-                echo "ERROR: npm not found on PATH=$PATH" >&2
-                exit 1
-              fi
+            if [ ! -d node_modules ] || [ ! -f "$INSTALL_HASH_FILE" ] || [ "$LOCKFILE_HASH" != "$(cat "$INSTALL_HASH_FILE")" ]; then
               npm ci --prefer-offline --no-audit --no-fund
               printf '%s' "$LOCKFILE_HASH" > "$INSTALL_HASH_FILE"
-            else
-              echo "→ skip npm ci (lockfile unchanged)"
             fi
 
-            echo "→ computing source hash"
-            SRC_HASH_FILE=".build.src.files"
-            find src -type f \( -name '*.ts' -o -name '*.json' -o -name '*.yaml' -o -name '*.yml' \) 2>/dev/null | sort > "$SRC_HASH_FILE" || true
-            printf '%s\n' package.json tsconfig.json >> "$SRC_HASH_FILE"
-            : > .build.src.concat
-            while IFS= read -r f; do
-              [ -n "$f" ] || continue
-              [ -f "$f" ] || continue
-              file_hash "$f" >> .build.src.concat
-            done < "$SRC_HASH_FILE"
-            SRC_HASH="$(file_hash .build.src.concat)"
-            echo "→ source hash=$SRC_HASH"
-
-            BUILD_HASH_FILE=".build.src.hash"
-            NEED_BUILD=0
-            PREV_BUILD_HASH="$(cat "$BUILD_HASH_FILE" 2>/dev/null || echo)"
-            if [ ! -d dist ] || [ ! -f dist/server.js ] || [ ! -f "$BUILD_HASH_FILE" ] || [ "$SRC_HASH" != "$PREV_BUILD_HASH" ]; then
-              NEED_BUILD=1
-            fi
-
-            if [ "$NEED_BUILD" = "1" ]; then
-              echo "→ npm run build"
-              npm run build
-              printf '%s' "$SRC_HASH" > "$BUILD_HASH_FILE"
-            else
-              echo "→ skip build (sources unchanged)"
-            fi
-
-            if [ ! -f dist/server.js ]; then
-              echo "→ dist/server.js missing; forcing build" >&2
-              npm run build
-              printf '%s' "$SRC_HASH" > "$BUILD_HASH_FILE"
-            fi
-
-            echo "→ migrate:prod"
+            npm run build
             npm run migrate:prod
 
-            echo "→ seed check"
-            if [ -f src/scripts/seed-circles.ts ]; then
-              SEED_HASH="$(file_hash src/scripts/seed-circles.ts)"
-              SEED_HASH_FILE=".seed-circles.hash"
-              PREV_SEED_HASH="$(cat "$SEED_HASH_FILE" 2>/dev/null || echo)"
-              if [ ! -f "$SEED_HASH_FILE" ] || [ "$SEED_HASH" != "$PREV_SEED_HASH" ]; then
-                echo "→ seed:circles"
-                if [ -f dist/scripts/seed-circles.js ]; then
-                  node dist/scripts/seed-circles.js || echo "⚠ seed failed (non-fatal)" >&2
-                else
-                  npm run seed:circles || echo "⚠ seed failed (non-fatal)" >&2
-                fi
-                printf '%s' "$SEED_HASH" > "$SEED_HASH_FILE"
-              else
-                echo "→ skip seed (unchanged)"
-              fi
-            else
-              echo "→ skip seed (script not found)"
+            SEED_HASH="$(sha256sum src/scripts/seed-circles.ts | awk '{print $1}')"
+            SEED_HASH_FILE=".seed-circles.hash"
+            if [ ! -f "$SEED_HASH_FILE" ] || [ "$SEED_HASH" != "$(cat "$SEED_HASH_FILE")" ]; then
+              npm run seed:circles
+              printf '%s' "$SEED_HASH" > "$SEED_HASH_FILE"
             fi
 
-            echo "→ pm2"
-            if [ "$PREV_SHA" = "$NEW_SHA" ] && [ "$NEED_BUILD" = "0" ]; then
-              echo "→ no code changes; ensuring process is up"
-              if ! pm2 describe anchor-backend >/dev/null 2>&1; then
-                pm2 start dist/server.js --name anchor-backend
-                pm2 save || true
-              fi
+            if pm2 describe anchor-backend >/dev/null 2>&1; then
+              pm2 restart anchor-backend --update-env
             else
-              if pm2 describe anchor-backend >/dev/null 2>&1; then
-                pm2 reload anchor-backend --update-env || pm2 restart anchor-backend --update-env
-              else
-                pm2 start dist/server.js --name anchor-backend
-                pm2 save || true
-              fi
+              pm2 start dist/server.js --name anchor-backend
+              pm2 save
             fi
 
-            echo "→ health check"
             for i in $(seq 1 30); do
               if curl -fsS http://127.0.0.1:3000/health >/dev/null; then
-                echo "→ healthy"
                 curl -fsS http://127.0.0.1:3000/health
                 exit 0
               fi
+
               sleep 1
             done
 
             echo "Health check failed after waiting for the app to start" >&2
-            pm2 describe anchor-backend || true
-            pm2 logs anchor-backend --lines 80 --nostream || true
+            pm2 logs anchor-backend --lines 50 --nostream
             exit 1
