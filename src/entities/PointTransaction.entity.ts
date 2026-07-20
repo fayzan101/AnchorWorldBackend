@@ -26,7 +26,7 @@ export class PointTransaction {
   @Column({ type: "varchar", length: 64 })
   type: string;
 
-  @Column({ type: "uuid", nullable: true })
+  @Column({ type: "varchar", length: 128, nullable: true })
   reference_id: string | null;
 
   @Column({ type: "varchar", length: 500, nullable: true })

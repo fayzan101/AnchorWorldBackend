@@ -36,6 +36,7 @@ import { PremiumSubscription1719000000009 } from "../migrations/1719000000009-Pr
 import { PremiumProductId1719000000010 } from "../migrations/1719000000010-PremiumProductId";
 import { Referrals1719000000011 } from "../migrations/1719000000011-Referrals";
 import { BasicPlanChatUnlockCallType1719000000012 } from "../migrations/1719000000012-BasicPlanChatUnlockCallType";
+import { WidenPointTransactionReferenceId1719000000013 } from "../migrations/1719000000013-WidenPointTransactionReferenceId";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -84,6 +85,7 @@ export const AppDataSource = new DataSource({
     PremiumProductId1719000000010,
     Referrals1719000000011,
     BasicPlanChatUnlockCallType1719000000012,
+    WidenPointTransactionReferenceId1719000000013,
   ],
   subscribers: [],
   charset: "utf8mb4",
