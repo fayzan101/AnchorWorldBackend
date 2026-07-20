@@ -2,6 +2,10 @@ import { MessageService } from "../services/message.service";
 import { MessageRepository } from "../repositories/message.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
+import { ChatUnlockRepository } from "../repositories/chat-unlock.repository";
+import { PointsService } from "../services/points.service";
+import { PremiumService } from "../services/premium.service";
+import { User } from "../entities/User.entity";
 
 jest.mock("../utils/block.util", () => ({
   isEitherBlocked: jest.fn().mockResolvedValue(false),
@@ -15,6 +19,9 @@ describe("MessageService", () => {
   let messageRepository: jest.Mocked<MessageRepository>;
   let followRepository: jest.Mocked<FollowRepository>;
   let userRepository: jest.Mocked<UserRepository>;
+  let chatUnlockRepository: jest.Mocked<ChatUnlockRepository>;
+  let pointsService: jest.Mocked<PointsService>;
+  let premiumService: jest.Mocked<PremiumService>;
   let service: MessageService;
 
   beforeEach(() => {
@@ -32,13 +39,32 @@ describe("MessageService", () => {
       findById: jest.fn(),
     } as unknown as jest.Mocked<UserRepository>;
 
-    service = new MessageService();
-    (service as unknown as { messageRepository: MessageRepository }).messageRepository =
-      messageRepository;
-    (service as unknown as { followRepository: FollowRepository }).followRepository =
-      followRepository;
-    (service as unknown as { userRepository: UserRepository }).userRepository =
-      userRepository;
+    chatUnlockRepository = {
+      isUnlocked: jest.fn().mockResolvedValue(true),
+    } as unknown as jest.Mocked<ChatUnlockRepository>;
+
+    pointsService = {
+      getBalance: jest.fn(),
+      spendPoints: jest.fn(),
+    } as unknown as jest.Mocked<PointsService>;
+
+    premiumService = {
+      ensurePlansActive: jest.fn().mockResolvedValue({
+        id: senderId,
+        is_premium: false,
+        is_basic: false,
+      } as User),
+      effectivePlan: jest.fn().mockReturnValue("free"),
+    } as unknown as jest.Mocked<PremiumService>;
+
+    service = new MessageService(
+      messageRepository,
+      followRepository,
+      userRepository,
+      chatUnlockRepository,
+      pointsService,
+      premiumService
+    );
   });
 
   it("rejects message when users are blocked", async () => {
@@ -86,5 +112,30 @@ describe("MessageService", () => {
       receiverId,
       "Hello"
     );
+    expect(chatUnlockRepository.isUnlocked).toHaveBeenCalledWith(
+      senderId,
+      receiverId
+    );
+  });
+
+  it("sends without unlock check when sender has Basic", async () => {
+    premiumService.effectivePlan.mockReturnValue("basic");
+    followRepository.checkMutualFollow.mockResolvedValue(true);
+    messageRepository.create.mockResolvedValue({
+      id: "msg-2",
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content: "Hi",
+      is_read: false,
+      created_at: new Date(),
+    } as never);
+    userRepository.findById.mockResolvedValue({
+      full_name: "Alice",
+      profile_picture: null,
+    } as never);
+
+    await service.sendMessage(senderId, receiverId, "Hi");
+
+    expect(chatUnlockRepository.isUnlocked).not.toHaveBeenCalled();
   });
 });
