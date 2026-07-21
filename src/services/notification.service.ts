@@ -484,6 +484,20 @@ export class NotificationService {
     return { updated };
   }
 
+  async deleteNotification(notificationId: string, userId: string) {
+    const existing = await this.notificationRepository.findById(notificationId);
+    if (!existing || (existing.user_id && existing.user_id !== userId)) {
+      throw new AppError("Notification not found", 404);
+    }
+    await this.notificationRepository.delete(notificationId);
+    return { deleted: true };
+  }
+
+  async deleteAllNotifications(userId: string) {
+    const deleted = await this.notificationRepository.deleteAllForUser(userId);
+    return { deleted };
+  }
+
   private formatNotification(notification: Notification): NotificationListItem {
     return {
       id: notification.id,

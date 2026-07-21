@@ -17,6 +17,7 @@ import { CircleMember } from "../entities/CircleMember.entity";
 import { Post } from "../entities/Post.entity";
 import { PostLike } from "../entities/PostLike.entity";
 import { PostComment } from "../entities/PostComment.entity";
+import { CommentLike } from "../entities/CommentLike.entity";
 import { VideoCall } from "../entities/VideoCall.entity";
 import { UserBlock } from "../entities/UserBlock.entity";
 import { ContentReport } from "../entities/ContentReport.entity";
@@ -40,6 +41,8 @@ import { BasicPlanChatUnlockCallType1719000000012 } from "../migrations/17190000
 import { WidenPointTransactionReferenceId1719000000013 } from "../migrations/1719000000013-WidenPointTransactionReferenceId";
 import { MessageReplyTo1719000000014 } from "../migrations/1719000000014-MessageReplyTo";
 import { MessageSoftDelete1719000000015 } from "../migrations/1719000000015-MessageSoftDelete";
+import { DropUnusedDatingUserColumns1719000000016 } from "../migrations/1719000000016-DropUnusedDatingUserColumns";
+import { CommentLikesAndReply1719000000017 } from "../migrations/1719000000017-CommentLikesAndReply";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -68,6 +71,7 @@ export const AppDataSource = new DataSource({
     Post,
     PostLike,
     PostComment,
+    CommentLike,
     VideoCall,
     UserBlock,
     ContentReport,
@@ -92,6 +96,8 @@ export const AppDataSource = new DataSource({
     WidenPointTransactionReferenceId1719000000013,
     MessageReplyTo1719000000014,
     MessageSoftDelete1719000000015,
+    DropUnusedDatingUserColumns1719000000016,
+    CommentLikesAndReply1719000000017,
   ],
   subscribers: [],
   charset: "utf8mb4",

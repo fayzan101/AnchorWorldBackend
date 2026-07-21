@@ -11,8 +11,7 @@ const moderationController = new ModerationController();
 
 router.use(authenticateToken);
 
-router.post(
-  "/:id/report",
+router.post("/:id/report",
   [
     body("reason")
       .optional()
@@ -23,6 +22,9 @@ router.post(
   validate,
   moderationController.reportComment
 );
+
+router.post("/:id/like", postController.likeComment);
+router.delete("/:id/like", postController.unlikeComment);
 
 router.delete("/:id", postController.deleteComment);
 

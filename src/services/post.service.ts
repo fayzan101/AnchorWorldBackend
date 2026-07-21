@@ -2,6 +2,7 @@ import { AppDataSource } from "../config/database";
 import { PostRepository } from "../repositories/post.repository";
 import { PostLikeRepository } from "../repositories/post-like.repository";
 import { PostCommentRepository } from "../repositories/post-comment.repository";
+import { CommentLikeRepository } from "../repositories/comment-like.repository";
 import { CircleRepository } from "../repositories/circle.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserRepository } from "../repositories/user.repository";
@@ -34,6 +35,7 @@ export class PostService {
   private postRepository: PostRepository;
   private postLikeRepository: PostLikeRepository;
   private postCommentRepository: PostCommentRepository;
+  private commentLikeRepository: CommentLikeRepository;
   private circleRepository: CircleRepository;
   private followRepository: FollowRepository;
   private userRepository: UserRepository;
@@ -48,12 +50,15 @@ export class PostService {
     followRepository?: FollowRepository,
     userRepository?: UserRepository,
     pointsService?: PointsService,
-    notificationService?: NotificationService
+    notificationService?: NotificationService,
+    commentLikeRepository?: CommentLikeRepository
   ) {
     this.postRepository = postRepository ?? new PostRepository();
     this.postLikeRepository = postLikeRepository ?? new PostLikeRepository();
     this.postCommentRepository =
       postCommentRepository ?? new PostCommentRepository();
+    this.commentLikeRepository =
+      commentLikeRepository ?? new CommentLikeRepository();
     this.circleRepository = circleRepository ?? new CircleRepository();
     this.followRepository = followRepository ?? new FollowRepository();
     this.userRepository = userRepository ?? new UserRepository();
@@ -191,9 +196,9 @@ export class PostService {
     data: CreatePostDto,
     media?: { url: string; type: PostMediaType }
   ): Promise<PostResponse> {
-    const content = data.content?.trim();
-    if (!content || content.length < 1) {
-      throw new AppError("Post content is required", 400);
+    const content = (data.content ?? "").trim();
+    if (!content && !media) {
+      throw new AppError("Add a caption or attach a photo/video", 400);
     }
 
     const user = await this.userRepository.findById(userId);
@@ -213,7 +218,7 @@ export class PostService {
 
     const post = await this.postRepository.create({
       user_id: userId,
-      content,
+      content: content || "",
       media_url: media?.url ?? null,
       media_type: media?.type ?? PostMediaType.NONE,
       circle_id: data.circle_id ?? null,
@@ -316,7 +321,67 @@ export class PostService {
     return { like_count: updated!.like_count };
   }
 
-  async getComments(postId: string, page = 1, limit = 20) {
+  async likeComment(
+    commentId: string,
+    userId: string
+  ): Promise<{ like_count: number; is_liked_by_me: boolean }> {
+    const comment = await this.postCommentRepository.findById(commentId);
+    if (!comment) {
+      throw new AppError("Comment not found", 404);
+    }
+
+    const existing = await this.commentLikeRepository.findByCommentAndUser(
+      commentId,
+      userId
+    );
+    if (existing) {
+      return {
+        like_count: comment.like_count ?? 0,
+        is_liked_by_me: true,
+      };
+    }
+
+    await AppDataSource.transaction(async (manager) => {
+      await this.commentLikeRepository.create(
+        { comment_id: commentId, user_id: userId },
+        manager
+      );
+      await this.postCommentRepository.incrementLikeCount(commentId, manager);
+    });
+
+    const updated = await this.postCommentRepository.findById(commentId);
+    return {
+      like_count: updated!.like_count ?? 0,
+      is_liked_by_me: true,
+    };
+  }
+
+  async unlikeComment(
+    commentId: string,
+    userId: string
+  ): Promise<{ like_count: number; is_liked_by_me: boolean }> {
+    const comment = await this.postCommentRepository.findById(commentId);
+    if (!comment) {
+      throw new AppError("Comment not found", 404);
+    }
+
+    const removed = await this.commentLikeRepository.delete(commentId, userId);
+    if (!removed) {
+      return {
+        like_count: comment.like_count ?? 0,
+        is_liked_by_me: false,
+      };
+    }
+
+    await this.postCommentRepository.decrementLikeCount(commentId);
+    const updated = await this.postCommentRepository.findById(commentId);
+    return {
+      like_count: updated!.like_count ?? 0,
+      is_liked_by_me: false,
+    };
+  }
+
+  async getComments(postId: string, userId: string, page = 1, limit = 20) {
     const post = await this.postRepository.findById(postId);
     if (!post) {
       throw new AppError("Post not found", 404);
@@ -328,8 +393,13 @@ export class PostService {
       limit
     );
 
+    const likedIds = await this.commentLikeRepository.findLikedCommentIds(
+      userId,
+      items.map((c) => c.id)
+    );
+
     return {
-      items: items.map((comment) => this.formatComment(comment)),
+      items: items.map((comment) => this.formatComment(comment, likedIds)),
       pagination: {
         page,
         limit,
@@ -345,8 +415,8 @@ export class PostService {
     data: CreateCommentDto
   ): Promise<PostCommentResponse> {
     const content = data.content?.trim();
-    if (!content || content.length < 3) {
-      throw new AppError("Comment must be at least 3 characters", 400);
+    if (!content || content.length < 1) {
+      throw new AppError("Comment cannot be empty", 400);
     }
 
     const post = await this.postRepository.findById(postId);
@@ -362,12 +432,22 @@ export class PostService {
       throw new AppError("Cannot comment on this post", 403);
     }
 
+    let parentId: string | null = null;
+    if (data.parent_id) {
+      const parent = await this.postCommentRepository.findById(data.parent_id);
+      if (!parent || parent.post_id !== postId) {
+        throw new AppError("Parent comment not found", 404);
+      }
+      parentId = parent.id;
+    }
+
     const comment = await AppDataSource.transaction(async (manager) => {
       const created = await this.postCommentRepository.create(
         {
           post_id: postId,
           user_id: userId,
           content,
+          parent_id: parentId,
         },
         manager
       );
@@ -410,7 +490,7 @@ export class PostService {
         .catch(console.error);
     }
 
-    return this.formatComment(saved!);
+    return this.formatComment(saved!, new Set());
   }
 
   async deleteComment(
@@ -496,18 +576,26 @@ export class PostService {
     }));
   }
 
-  private formatComment(comment: {
-    id: string;
-    post_id: string;
-    content: string;
-    created_at: Date;
-    user: User;
-  }): PostCommentResponse {
+  private formatComment(
+    comment: {
+      id: string;
+      post_id: string;
+      content: string;
+      parent_id?: string | null;
+      like_count?: number;
+      created_at: Date;
+      user: User;
+    },
+    likedIds: Set<string> = new Set()
+  ): PostCommentResponse {
     return {
       id: comment.id,
       post_id: comment.post_id,
       user: this.toPostAuthor(comment.user),
       content: comment.content,
+      parent_id: comment.parent_id ?? null,
+      like_count: comment.like_count ?? 0,
+      is_liked_by_me: likedIds.has(comment.id),
       created_at: comment.created_at,
     };
   }

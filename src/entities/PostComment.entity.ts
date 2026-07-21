@@ -29,6 +29,9 @@ export class PostComment {
   @Column({ type: "uuid", nullable: true })
   parent_id: string | null;
 
+  @Column({ type: "int", default: 0 })
+  like_count: number;
+
   @CreateDateColumn()
   created_at: Date;
 

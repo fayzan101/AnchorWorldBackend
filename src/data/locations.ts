@@ -6,8 +6,68 @@ export interface CountryEntry {
   flag?: string;
 }
 
-const MAIN_CITY_SOFT_CAP = 150;
-const SMALL_COUNTRY_ALL_THRESHOLD = 100;
+const MAIN_CITY_SOFT_CAP = 400;
+const SMALL_COUNTRY_ALL_THRESHOLD = 200;
+
+/** Major cities that should always appear for large countries (by ISO code). */
+const PRIORITY_CITIES: Record<string, string[]> = {
+  US: [
+    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
+    "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
+    "Fort Worth", "Columbus", "Charlotte", "San Francisco", "Indianapolis",
+    "Seattle", "Denver", "Washington", "Boston", "El Paso", "Nashville",
+    "Detroit", "Oklahoma City", "Portland", "Las Vegas", "Memphis", "Louisville",
+    "Baltimore", "Milwaukee", "Albuquerque", "Tucson", "Fresno", "Sacramento",
+    "Mesa", "Kansas City", "Atlanta", "Miami", "Raleigh", "Omaha", "Minneapolis",
+    "Tampa", "Orlando", "Cleveland", "Pittsburgh", "Cincinnati",
+  ],
+  PK: [
+    "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad", "Multan",
+    "Peshawar", "Quetta", "Sialkot", "Gujranwala", "Hyderabad", "Sukkur",
+    "Bahawalpur", "Sargodha", "Abbottabad", "Mardan", "Mingora", "Rahim Yar Khan",
+    "Sahiwal", "Okara", "Sheikhupura", "Jhelum", "Gujrat", "Kasur", "Dera Ghazi Khan",
+  ],
+  IN: [
+    "Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata",
+    "Pune", "Jaipur", "Surat", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane",
+    "Bhopal", "Visakhapatnam", "Patna", "Vadodara", "Ghaziabad", "Ludhiana",
+    "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Varanasi", "Srinagar",
+    "Amritsar", "Chandigarh", "Coimbatore", "Kochi", "Mysuru", "Noida", "Gurgaon",
+  ],
+  GB: [
+    "London", "Birmingham", "Manchester", "Glasgow", "Liverpool", "Leeds",
+    "Sheffield", "Edinburgh", "Bristol", "Cardiff", "Belfast", "Leicester",
+    "Coventry", "Nottingham", "Newcastle upon Tyne", "Southampton", "Portsmouth",
+    "Brighton", "Reading", "Oxford", "Cambridge", "Aberdeen", "Dundee",
+  ],
+  CA: [
+    "Toronto", "Montreal", "Vancouver", "Calgary", "Edmonton", "Ottawa",
+    "Winnipeg", "Quebec City", "Hamilton", "Kitchener", "London", "Victoria",
+    "Halifax", "Oshawa", "Windsor", "Saskatoon", "Regina", "St. John's",
+  ],
+  AE: [
+    "Dubai", "Abu Dhabi", "Sharjah", "Ajman", "Ras Al Khaimah", "Fujairah",
+    "Al Ain", "Umm Al Quwain",
+  ],
+  SA: [
+    "Riyadh", "Jeddah", "Mecca", "Medina", "Dammam", "Khobar", "Tabuk",
+    "Abha", "Taif", "Jubail", "Yanbu", "Najran",
+  ],
+  AU: [
+    "Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Gold Coast",
+    "Canberra", "Newcastle", "Wollongong", "Hobart", "Geelong", "Townsville",
+    "Cairns", "Darwin", "Toowoomba",
+  ],
+  DE: [
+    "Berlin", "Hamburg", "Munich", "Cologne", "Frankfurt", "Stuttgart",
+    "Düsseldorf", "Leipzig", "Dortmund", "Essen", "Bremen", "Dresden",
+    "Hanover", "Nuremberg", "Duisburg",
+  ],
+  FR: [
+    "Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Nantes", "Montpellier",
+    "Strasbourg", "Bordeaux", "Lille", "Rennes", "Reims", "Toulon",
+  ],
+};
 
 function dist2(
   a: { latitude?: string | null; longitude?: string | null },
@@ -48,7 +108,7 @@ function resolveCountry(countryQuery: string): ICountry | undefined {
 /**
  * Main cities for a country (name or ISO code).
  * - Small countries: all unique city names
- * - Large countries: ~1 city near each state centroid + fill to soft cap
+ * - Large countries: priority cities + ~1 per state + fill to soft cap
  */
 export function listCitiesForCountry(countryQuery: string): string[] {
   const country = resolveCountry(countryQuery);
@@ -56,7 +116,6 @@ export function listCitiesForCountry(countryQuery: string): string[] {
 
   const raw = City.getCitiesOfCountry(country.isoCode) || [];
   if (raw.length === 0) {
-    // Territories / city-states with no city rows — use country name as the city option
     return [country.name];
   }
 
@@ -72,9 +131,24 @@ export function listCitiesForCountry(countryQuery: string): string[] {
     return cities.map((c) => c.name).sort((a, b) => a.localeCompare(b));
   }
 
-  const selected = new Map<string, string>(); // lower -> display name
-  const states = State.getStatesOfCountry(country.isoCode) || [];
+  const selected = new Map<string, string>();
 
+  // Always include curated major cities when present in the dataset.
+  const priorities = PRIORITY_CITIES[country.isoCode] || [];
+  for (const name of priorities) {
+    const key = name.toLowerCase();
+    const match =
+      unique.get(key) ||
+      cities.find((c) => c.name.toLowerCase().includes(key) || key.includes(c.name.toLowerCase()));
+    if (match) {
+      selected.set(match.name.toLowerCase(), match.name);
+    } else {
+      // Still surface the well-known name even if package spelling differs slightly.
+      selected.set(key, name);
+    }
+  }
+
+  const states = State.getStatesOfCountry(country.isoCode) || [];
   for (const state of states) {
     const inState = cities.filter((c) => c.stateCode === state.isoCode);
     if (inState.length === 0) continue;
@@ -91,7 +165,6 @@ export function listCitiesForCountry(countryQuery: string): string[] {
     selected.set(pick.name.toLowerCase(), pick.name);
   }
 
-  // Fill remaining slots with cities closest to the country center
   const ranked = [...cities].sort(
     (a, b) => dist2(a, country) - dist2(b, country)
   );

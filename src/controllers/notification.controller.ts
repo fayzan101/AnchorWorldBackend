@@ -147,4 +147,35 @@ export class NotificationController {
       next(error);
     }
   };
+
+  deleteOne = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const result = await this.notificationService.deleteNotification(
+        req.params.id,
+        userId
+      );
+      ResponseUtil.success(res, result, "Notification deleted");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteAll = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const result = await this.notificationService.deleteAllNotifications(userId);
+      ResponseUtil.success(res, result, "All notifications deleted");
+    } catch (error) {
+      next(error);
+    }
+  };
 }

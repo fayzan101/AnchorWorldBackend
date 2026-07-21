@@ -169,10 +169,12 @@ export class ValidationUtil {
 
   static createPost(): ValidationChain[] {
     return [
+      // Content optional when media is attached (checked in service).
       body("content")
+        .optional({ nullable: true, checkFalsy: true })
         .trim()
-        .isLength({ min: 1, max: 5000 })
-        .withMessage("Post content must be between 1 and 5000 characters"),
+        .isLength({ max: 5000 })
+        .withMessage("Post content must be at most 5000 characters"),
       body("circle_id")
         .optional()
         .isUUID()
@@ -184,8 +186,12 @@ export class ValidationUtil {
     return [
       body("content")
         .trim()
-        .isLength({ min: 3, max: 2000 })
-        .withMessage("Comment must be between 3 and 2000 characters"),
+        .isLength({ min: 1, max: 2000 })
+        .withMessage("Comment must be between 1 and 2000 characters"),
+      body("parent_id")
+        .optional({ nullable: true, checkFalsy: true })
+        .isUUID()
+        .withMessage("parent_id must be a valid UUID"),
     ];
   }
 

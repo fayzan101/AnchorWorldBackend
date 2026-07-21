@@ -44,4 +44,20 @@ export class PostCommentRepository {
     const result = await this.repo().softDelete({ id, user_id: userId });
     return (result.affected ?? 0) > 0;
   }
+
+  async incrementLikeCount(id: string, manager?: EntityManager): Promise<void> {
+    const repository = manager
+      ? manager.getRepository(PostComment)
+      : this.repo();
+    await repository.increment({ id }, "like_count", 1);
+  }
+
+  async decrementLikeCount(id: string): Promise<void> {
+    await this.repo()
+      .createQueryBuilder()
+      .update(PostComment)
+      .set({ like_count: () => "GREATEST(like_count - 1, 0)" })
+      .where("id = :id", { id })
+      .execute();
+  }
 }

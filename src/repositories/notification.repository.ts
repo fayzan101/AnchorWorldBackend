@@ -73,4 +73,9 @@ export class NotificationRepository {
   async delete(id: string): Promise<void> {
     await this.repository.delete(id);
   }
+
+  async deleteAllForUser(userId: string): Promise<number> {
+    const result = await this.repository.delete({ user_id: userId });
+    return result.affected ?? 0;
+  }
 }

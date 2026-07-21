@@ -8,14 +8,12 @@ import {
   ManyToMany,
   JoinTable,
 } from "typeorm";
-import { Gender, SeekingRelation } from "../types";
+import { Gender } from "../types";
 import { Follow } from "./Follow.entity";
 import { Message } from "./Message.entity";
 import { RefreshToken } from "./RefreshToken.entity";
 import { Notification } from "./Notification.entity";
 import { Hobby } from "./Hobbies.entity";
-import { RelationshipGoals } from "./RelationshipGoals.entity";
-import { PartnerQuality } from "./PartnerQualities.entity";
 
 @Entity("users")
 export class User {
@@ -46,59 +44,14 @@ export class User {
   })
   profile_completed: Boolean;
 
-  // Profile Fields
-  @Column({
-    type: "enum",
-    enum: SeekingRelation,
-    nullable: true,
-  })
-  seeking_relation: string | null; // What brings you to Anchor
-
-  @Column({
-    type: "enum",
-    enum: Gender,
-    nullable: true,
-  })
-  interested_in: string | null; // Who would you like to meet
-
-  // ✅ Many-to-Many relationship with Relationship Goals
-  @ManyToMany(() => RelationshipGoals, (goal) => goal.users, { cascade: true })
-  @JoinTable({
-    name: "user_goals", // custom join table name
-    joinColumn: { name: "user_id", referencedColumnName: "id" },
-    inverseJoinColumn: { name: "goal_id", referencedColumnName: "id" },
-  })
-  relationship_goals: RelationshipGoals[]; // What are you hoping to find
-
-  @Column({ type: "varchar", length: 500, nullable: true })
-  height: string | null; 
-
-  // ✅ Many-to-Many relationship with Hobby
+  // Community topics (hobbies)
   @ManyToMany(() => Hobby, (hobby) => hobby.users, { cascade: true })
   @JoinTable({
-    name: "user_hobbies", // custom join table name
+    name: "user_hobbies",
     joinColumn: { name: "user_id", referencedColumnName: "id" },
     inverseJoinColumn: { name: "hobby_id", referencedColumnName: "id" },
   })
-  hobbies: Hobby[]; // Things you are into
-
-  // ✅ Many-to-Many relationship with Partner Quality
-  @ManyToMany(() => PartnerQuality, (quality) => quality.users, { cascade: true })
-  @JoinTable({
-    name: "user_partner_qualities", // custom join table name
-    joinColumn: { name: "user_id", referencedColumnName: "id" },
-    inverseJoinColumn: { name: "partner_quality_id", referencedColumnName: "id" },
-  })
-  partner_qualities: PartnerQuality[]; // Partner qualities you like
-
-  @Column({ type: "varchar", length: 500, nullable: true })
-  have_kids: string | null;
-
-  @Column({ type: "varchar", length: 500, nullable: true })
-  kids: string | null;
-
-  @Column({ type: "text", nullable: true })
-  date_you_reason: string | null; // whats it like to date you?
+  hobbies: Hobby[];
 
   @Column({ type: "varchar", length: 500, nullable: true })
   profile_picture: string | null;

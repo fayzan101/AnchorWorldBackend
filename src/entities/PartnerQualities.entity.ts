@@ -4,10 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany,
 } from "typeorm";
-import { User } from "./User.entity";
 
+/** Legacy dating lookup table (no longer linked to users). */
 @Entity("partner_qualities")
 export class PartnerQuality {
   @PrimaryGeneratedColumn("uuid")
@@ -21,8 +20,4 @@ export class PartnerQuality {
 
   @UpdateDateColumn()
   updated_at: Date;
-
-  // ✅ Many-to-Many reverse relationship
-  @ManyToMany(() => User, (user) => user.partner_qualities)
-  users: User[];
 }

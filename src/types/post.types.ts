@@ -30,14 +30,18 @@ export interface PostCommentResponse {
   post_id: string;
   user: PostAuthor;
   content: string;
+  parent_id: string | null;
+  like_count: number;
+  is_liked_by_me: boolean;
   created_at: Date;
 }
 
 export interface CreatePostDto {
-  content: string;
+  content?: string;
   circle_id?: string;
 }
 
 export interface CreateCommentDto {
   content: string;
+  parent_id?: string;
 }

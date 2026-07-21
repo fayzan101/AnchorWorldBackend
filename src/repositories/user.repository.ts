@@ -13,7 +13,7 @@ export class UserRepository {
   async findById(id: string): Promise<User | null> {
     return await this.repository.findOne({
       where: { id },
-      relations: ["hobbies", "relationship_goals", "partner_qualities"],
+      relations: ["hobbies"],
     });
   }
 

@@ -143,6 +143,7 @@ export class PostController {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
       const result = await this.postService.getComments(
         req.params.id,
+        req.user!.id,
         page,
         limit
       );
@@ -161,9 +162,41 @@ export class PostController {
       const comment = await this.postService.createComment(
         req.params.id,
         req.user!.id,
-        { content: req.body.content }
+        { content: req.body.content, parent_id: req.body.parent_id }
       );
       ResponseUtil.created(res, comment, "Comment created successfully");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  likeComment = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const result = await this.postService.likeComment(
+        req.params.id,
+        req.user!.id
+      );
+      ResponseUtil.success(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  unlikeComment = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const result = await this.postService.unlikeComment(
+        req.params.id,
+        req.user!.id
+      );
+      ResponseUtil.success(res, result);
     } catch (error) {
       next(error);
     }
