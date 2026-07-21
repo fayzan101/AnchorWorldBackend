@@ -41,6 +41,11 @@ export interface CreatePostDto {
   circle_id?: string;
 }
 
+export interface UpdatePostDto {
+  content?: string;
+  circle_id?: string | null;
+}
+
 export interface CreateCommentDto {
   content: string;
   parent_id?: string;

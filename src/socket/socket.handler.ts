@@ -15,17 +15,37 @@ import { userRoom } from "../services/socket-event.service";
 const onlineUsers = new Map<string, Set<string>>();
 const offlineTimers = new Map<string, NodeJS.Timeout>();
 
+/** Debounce so brief reconnects don't flicker Offline. Exported for tests. */
+export const PRESENCE_OFFLINE_DEBOUNCE_MS = 1500;
+
+/** Clear in-memory presence maps between unit tests. */
+export function resetSocketPresenceStateForTests(): void {
+  for (const timer of offlineTimers.values()) {
+    clearTimeout(timer);
+  }
+  offlineTimers.clear();
+  onlineUsers.clear();
+}
+
 export class SocketHandler {
   private io: Server;
   private messageService: MessageService;
   private userService: UserService;
   private notificationService: NotificationService;
 
-  constructor(io: Server) {
+  constructor(
+    io: Server,
+    deps?: {
+      messageService?: MessageService;
+      userService?: UserService;
+      notificationService?: NotificationService;
+    }
+  ) {
     this.io = io;
-    this.messageService = new MessageService();
-    this.userService = new UserService();
-    this.notificationService = new NotificationService();
+    this.messageService = deps?.messageService ?? new MessageService();
+    this.userService = deps?.userService ?? new UserService();
+    this.notificationService =
+      deps?.notificationService ?? new NotificationService();
   }
 
   handleConnection(socket: AuthenticatedSocket): void {
@@ -184,7 +204,7 @@ export class SocketHandler {
               .updateOnlineStatus(userId, false)
               .catch(console.error);
             this.broadcastOnlineStatus(userId, false);
-          }, 1500);
+          }, PRESENCE_OFFLINE_DEBOUNCE_MS);
           offlineTimers.set(userId, timer);
         }
       }

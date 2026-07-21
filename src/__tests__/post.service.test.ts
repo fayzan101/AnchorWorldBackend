@@ -26,6 +26,7 @@ describe("PostService", () => {
     findById: jest.fn(),
     create: jest.fn(),
     softDelete: jest.fn(),
+    updateOwned: jest.fn(),
     incrementLikeCount: jest.fn(),
     decrementLikeCount: jest.fn(),
     incrementCommentCount: jest.fn(),

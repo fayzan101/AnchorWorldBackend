@@ -18,6 +18,7 @@ import {
   PostAuthor,
   PostCommentResponse,
   PostResponse,
+  UpdatePostDto,
 } from "../types/post.types";
 import { toPublicUser } from "../utils/user-response.mapper";
 import { getBlockedUserIds } from "../utils/block.util";
@@ -230,6 +231,56 @@ export class PostService {
 
     const saved = await this.postRepository.findById(post.id);
     const [formatted] = await this.formatPosts([saved!], userId);
+    return formatted;
+  }
+
+  async updatePost(
+    postId: string,
+    userId: string,
+    data: UpdatePostDto,
+    media?: { url: string; type: PostMediaType }
+  ): Promise<PostResponse> {
+    const existing = await this.postRepository.findById(postId);
+    if (!existing || existing.user_id !== userId) {
+      throw new AppError("Post not found or not owned by you", 404);
+    }
+
+    const nextContent =
+      data.content !== undefined ? (data.content ?? "").trim() : existing.content;
+    const nextMediaUrl = media?.url ?? existing.media_url;
+    const nextMediaType = media?.type ?? existing.media_type;
+    const hasMedia =
+      !!nextMediaUrl && nextMediaType !== PostMediaType.NONE;
+
+    if (!nextContent && !hasMedia) {
+      throw new AppError("Add a caption or attach a photo/video", 400);
+    }
+
+    let nextCircleId =
+      data.circle_id === undefined ? existing.circle_id : data.circle_id;
+    if (nextCircleId) {
+      const isMember = await this.circleRepository.isMember(
+        nextCircleId,
+        userId
+      );
+      if (!isMember) {
+        throw new AppError("You must join this circle before posting", 403);
+      }
+    } else {
+      nextCircleId = null;
+    }
+
+    const updated = await this.postRepository.updateOwned(postId, userId, {
+      content: nextContent || "",
+      media_url: nextMediaUrl,
+      media_type: nextMediaType,
+      circle_id: nextCircleId,
+    });
+    if (!updated) {
+      throw new AppError("Post not found or not owned by you", 404);
+    }
+
+    const [formatted] = await this.formatPosts([updated], userId);
     return formatted;
   }
 

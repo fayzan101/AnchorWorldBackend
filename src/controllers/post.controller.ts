@@ -85,6 +85,46 @@ export class PostController {
     }
   };
 
+  updatePost = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      let media: { url: string; type: PostMediaType } | undefined;
+
+      if (req.file) {
+        const isVideo = req.file.mimetype.startsWith("video/");
+        media = {
+          url: getPostMediaPath(req.file.filename),
+          type: isVideo ? PostMediaType.VIDEO : PostMediaType.IMAGE,
+        };
+      }
+
+      const circleRaw = req.body.circle_id;
+      const circleId =
+        circleRaw === undefined
+          ? undefined
+          : circleRaw === "" || circleRaw === "null"
+            ? null
+            : String(circleRaw);
+
+      const post = await this.postService.updatePost(
+        req.params.id,
+        req.user!.id,
+        {
+          content: req.body.content,
+          circle_id: circleId,
+        },
+        media
+      );
+
+      ResponseUtil.success(res, post, "Post updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  };
+
   deletePost = async (
     req: AuthRequest,
     res: Response,

@@ -49,6 +49,21 @@ export class PostRepository {
     return (result.affected ?? 0) > 0;
   }
 
+  async updateOwned(
+    id: string,
+    userId: string,
+    data: Partial<Pick<Post, "content" | "media_url" | "media_type" | "circle_id">>
+  ): Promise<Post | null> {
+    const existing = await this.repo().findOne({
+      where: { id, user_id: userId },
+      withDeleted: false,
+    });
+    if (!existing) return null;
+    Object.assign(existing, data);
+    await this.repo().save(existing);
+    return this.findById(id);
+  }
+
   async countByUser(userId: string): Promise<number> {
     return this.repo().count({
       where: { user_id: userId },

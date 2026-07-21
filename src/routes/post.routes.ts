@@ -59,6 +59,13 @@ router.post(
 );
 
 router.get("/:id", postController.getPostById);
+router.patch(
+  "/:id",
+  postUpload.single("media"),
+  ValidationUtil.createPost(),
+  validate,
+  postController.updatePost
+);
 router.delete("/:id", postController.deletePost);
 
 export default router;
