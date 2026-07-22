@@ -18,6 +18,7 @@ import {
   PostAuthor,
   PostCommentResponse,
   PostResponse,
+  SharePostDto,
   UpdatePostDto,
 } from "../types/post.types";
 import { toPublicUser } from "../utils/user-response.mapper";
@@ -281,6 +282,81 @@ export class PostService {
     }
 
     const [formatted] = await this.formatPosts([updated], userId);
+    return formatted;
+  }
+
+  async sharePost(
+    postId: string,
+    userId: string,
+    data: SharePostDto
+  ): Promise<PostResponse> {
+    const source = await this.postRepository.findById(postId);
+    if (!source) {
+      throw new AppError("Post not found", 404);
+    }
+
+    const blockedUserIds = await getBlockedUserIds(userId);
+    if (blockedUserIds.includes(source.user_id)) {
+      throw new AppError("Post not found", 404);
+    }
+
+    const circleId = data.circle_id;
+    const isMember = await this.circleRepository.isMember(circleId, userId);
+    if (!isMember) {
+      throw new AppError("You must join this circle before sharing", 403);
+    }
+
+    if (source.circle_id && source.circle_id === circleId) {
+      throw new AppError("This post is already in that circle", 400);
+    }
+
+    const authorName = source.user?.full_name?.trim() || "Member";
+    const sourceCircleName = source.circle?.name?.trim();
+    const attribution = sourceCircleName
+      ? `Shared from ${authorName} in ${sourceCircleName}`
+      : `Shared from ${authorName}`;
+
+    const comment = (data.comment ?? "").trim();
+    const original = (source.content ?? "").trim();
+    let content = "";
+    if (comment) {
+      content = comment;
+      if (original) {
+        content += `\n\n${original}\n\n— ${attribution}`;
+      } else {
+        content += `\n\n— ${attribution}`;
+      }
+    } else if (original) {
+      content = `${original}\n\n— ${attribution}`;
+    } else {
+      content = attribution;
+    }
+
+    const hasMedia =
+      !!source.media_url && source.media_type !== PostMediaType.NONE;
+    if (!content.trim() && !hasMedia) {
+      throw new AppError("Nothing to share from this post", 400);
+    }
+
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    const post = await this.postRepository.create({
+      user_id: userId,
+      content: content.trim(),
+      media_url: source.media_url,
+      media_type: source.media_type,
+      circle_id: circleId,
+      city: user.location_opt_in ? user.city ?? null : null,
+      country: user.location_opt_in ? user.country ?? null : null,
+    });
+
+    await this.awardCreatePostPoints(userId, post);
+
+    const saved = await this.postRepository.findById(post.id);
+    const [formatted] = await this.formatPosts([saved!], userId);
     return formatted;
   }
 

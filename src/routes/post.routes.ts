@@ -58,6 +58,13 @@ router.post(
   moderationController.reportPost
 );
 
+router.post(
+  "/:id/share",
+  ValidationUtil.sharePost(),
+  validate,
+  postController.sharePost
+);
+
 router.get("/:id", postController.getPostById);
 router.patch(
   "/:id",

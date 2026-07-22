@@ -182,6 +182,19 @@ export class ValidationUtil {
     ];
   }
 
+  static sharePost(): ValidationChain[] {
+    return [
+      body("circle_id")
+        .isUUID()
+        .withMessage("circle_id must be a valid UUID"),
+      body("comment")
+        .optional({ nullable: true, checkFalsy: true })
+        .trim()
+        .isLength({ max: 500 })
+        .withMessage("comment must be at most 500 characters"),
+    ];
+  }
+
   static createComment(): ValidationChain[] {
     return [
       body("content")

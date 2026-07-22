@@ -125,6 +125,22 @@ export class PostController {
     }
   };
 
+  sharePost = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const post = await this.postService.sharePost(req.params.id, req.user!.id, {
+        circle_id: req.body.circle_id,
+        comment: req.body.comment,
+      });
+      ResponseUtil.created(res, post, "Post shared successfully");
+    } catch (error) {
+      next(error);
+    }
+  };
+
   deletePost = async (
     req: AuthRequest,
     res: Response,
