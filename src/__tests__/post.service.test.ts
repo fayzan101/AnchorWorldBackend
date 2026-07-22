@@ -103,6 +103,8 @@ describe("PostService", () => {
     country: "Pakistan",
     like_count: 0,
     comment_count: 0,
+    source_post_id: null,
+    source_post: null,
     created_at: new Date(),
     updated_at: new Date(),
     deleted_at: null,
