@@ -138,7 +138,8 @@ describe("VideoCallService", () => {
       calleeId,
       callerId,
       "Caller",
-      "call-uuid-123"
+      "call-uuid-123",
+      "video"
     );
   });
 
@@ -226,7 +227,8 @@ describe("VideoCallService", () => {
     expect(pointsService.awardPoints).not.toHaveBeenCalled();
     expect(notificationService.notifyVideoCallRejected).toHaveBeenCalledWith(
       callerId,
-      "call-uuid-123"
+      "call-uuid-123",
+      "video"
     );
   });
 

@@ -74,7 +74,8 @@ describe("MessageService", () => {
       service.sendMessage(senderId, receiverId, "hi")
     ).rejects.toMatchObject({
       statusCode: 403,
-      message: "Cannot message this user",
+      message: "Couldn't send message",
+      code: "MESSAGE_UNAVAILABLE",
     });
   });
 
