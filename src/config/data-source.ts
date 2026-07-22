@@ -5,11 +5,8 @@ import { User } from "../entities/User.entity";
 import { Follow } from "../entities/Follow.entity";
 import { Message } from "../entities/Message.entity";
 import { RefreshToken } from "../entities/RefreshToken.entity";
-import { Like } from "../entities/Like.entity";
 import { Notification } from "../entities/Notification.entity";
 import { Hobby } from "../entities/Hobbies.entity";
-import { RelationshipGoals } from "../entities/RelationshipGoals.entity";
-import { PartnerQuality } from "../entities/PartnerQualities.entity";
 import { UserPoints } from "../entities/UserPoints.entity";
 import { PointTransaction } from "../entities/PointTransaction.entity";
 import { Circle } from "../entities/Circle.entity";
@@ -43,6 +40,7 @@ import { MessageReplyTo1719000000014 } from "../migrations/1719000000014-Message
 import { MessageSoftDelete1719000000015 } from "../migrations/1719000000015-MessageSoftDelete";
 import { DropUnusedDatingUserColumns1719000000016 } from "../migrations/1719000000016-DropUnusedDatingUserColumns";
 import { CommentLikesAndReply1719000000017 } from "../migrations/1719000000017-CommentLikesAndReply";
+import { DropUnusedDatingLookupTables1719000000018 } from "../migrations/1719000000018-DropUnusedDatingLookupTables";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -59,11 +57,8 @@ export const AppDataSource = new DataSource({
     Message,
     MessageHide,
     RefreshToken,
-    Like,
     Notification,
     Hobby,
-    RelationshipGoals,
-    PartnerQuality,
     UserPoints,
     PointTransaction,
     Circle,
@@ -98,6 +93,7 @@ export const AppDataSource = new DataSource({
     MessageSoftDelete1719000000015,
     DropUnusedDatingUserColumns1719000000016,
     CommentLikesAndReply1719000000017,
+    DropUnusedDatingLookupTables1719000000018,
   ],
   subscribers: [],
   charset: "utf8mb4",
