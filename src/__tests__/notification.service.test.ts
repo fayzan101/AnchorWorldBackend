@@ -143,6 +143,7 @@ describe("NotificationService", () => {
       call_id: "call-1",
       caller_id: actorId,
       caller_name: "Taylor",
+      call_type: "video",
     });
     expect(sendMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -158,6 +159,7 @@ describe("NotificationService", () => {
 
     expect(emitVideoCallAccepted).toHaveBeenCalledWith(actorId, {
       call_id: "call-1",
+      call_type: "video",
     });
   });
 
