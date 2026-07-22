@@ -1,19 +1,26 @@
 openapi: 3.0.3
 info:
-  title: Anchor App APIS
+  title: Anchor World API
   description: |
-    REST API for the Anchor mobile app.
+    REST API for the Anchor World mobile app (topic communities).
 
-    **Base URL:** `/api` (configurable via `API_PREFIX`)
-  version: 1.0.0
+    **API base:** `/api` (configurable via `API_PREFIX`)
+
+    **Password reset emails** link to `https://app.anchorworld.org/reset-password?token=…`
+    (HTML bridge → `anchor://` deep link). Same pattern for invite links under `/invite/{code}`.
+
+    Removed dating-era endpoints: `/likes`, `/relationship-goals`, `/partner-qualities`.
+  version: 1.1.0
   contact:
-    name: Anchor App API Support
+    name: Anchor World API Support
 
 servers:
   - url: /api
     description: API prefix (relative to server host)
   - url: https://app.anchorworld.org/api
-    description: Production
+    description: Production API
+  - url: https://app.anchorworld.org
+    description: Production host (deep-link HTML bridges — no /api prefix)
 
 tags:
   - name: Health
@@ -22,6 +29,10 @@ tags:
     description: Prometheus metrics and observability endpoints
   - name: Auth
     description: Registration, login, tokens, password reset
+  - name: Deep Links
+    description: |
+      Host-level HTML bridges (select the **Production host** server in Swagger).
+      Opens the installed app via `anchor://` custom scheme when App Links do not.
   - name: Profile
     description: Current user profile
   - name: Users
@@ -35,24 +46,26 @@ tags:
   - name: Notifications
     description: FCM tokens and in-app notification list
   - name: Reference Data
-    description: Interest picklists (hobbies)
+    description: Interest picklists (hobbies) and location pickers
   - name: Onboarding
     description: Community onboarding flow
   - name: Discover
     description: Local community discovery
   - name: Points
     description: Anchor Points wallet and transaction history
+  - name: Referrals
+    description: Invite codes and referral rewards
   - name: Premium
     description: |
       Basic and Premium subscriptions via RevenueCat.
-      Basic = unlimited chat + voice intros. Premium = video intros (+ Basic benefits).
+      Basic = unlimited chat + voice calls. Premium = video calls (+ Basic benefits).
   - name: Circles
     description: Topic communities — primary discovery surface
   - name: Posts
-    description: Community posts, feed, likes, and comments
+    description: Community posts, feed, likes, comments, and in-app share to circles
   - name: Video Calls
     description: |
-      Guided voice/video intros (Agora RTC).
+      Voice/video calls (Agora RTC).
       Voice requires Basic (or Premium). Video requires Premium. No points spent on calls.
   - name: Admin
     description: Content moderation (ADMIN_USER_IDS only)
@@ -198,6 +211,10 @@ paths:
     post:
       tags: [Auth]
       summary: Request password reset email
+      description: |
+        Sends an email with link `https://app.anchorworld.org/reset-password?token=…`.
+        That host route returns an HTML bridge that opens `anchor://reset-password?token=…`.
+        The app then calls `POST /auth/reset-password` with the token.
       requestBody:
         required: true
         content:
@@ -266,6 +283,53 @@ paths:
       responses:
         "200":
           description: Logged out
+
+  /reset-password:
+    get:
+      tags: [Deep Links]
+      summary: Password reset deep-link bridge (HTML)
+      description: |
+        **Not under `/api`.** Select the **Production host** server.
+        Returns HTML that redirects to `anchor://reset-password?token=…` so the installed app opens.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: HTML bridge page
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          description: Missing token (HTML error page)
+
+  /invite/{code}:
+    get:
+      tags: [Deep Links]
+      summary: Referral invite deep-link bridge (HTML)
+      description: |
+        **Not under `/api`.** Select the **Production host** server.
+        Returns HTML that redirects to `anchor://invite/{code}` for signup.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: HTML bridge page
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          description: Invalid invite (HTML error page)
 
   /profile:
     get:
@@ -973,6 +1037,76 @@ paths:
         "200":
           description: Preference updated
 
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Unread notification count
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+
+  /notifications/read-all:
+    put:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All marked read
+
+  /notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: Mark one notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Marked read
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      summary: Delete one notification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /notifications:
     post:
       tags: [Notifications]
@@ -994,6 +1128,80 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/NotificationRecord"
+    delete:
+      tags: [Notifications]
+      summary: Delete all notifications for current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All deleted
+
+  /referrals/me:
+    get:
+      tags: [Referrals]
+      summary: My invite code and referral stats
+      description: |
+        Returns a fresh invite code, share link (`https://app.anchorworld.org/invite/{code}`),
+        and invite history. Opening the share link uses the host HTML deep-link bridge.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Referral summary
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          referral_code:
+                            type: string
+                          share_link:
+                            type: string
+                            example: https://app.anchorworld.org/invite/ABCD1234
+                          invited_count:
+                            type: integer
+                          completed_count:
+                            type: integer
+                          referrer_reward:
+                            type: integer
+                          referee_reward:
+                            type: integer
+                          invites:
+                            type: array
+                            items:
+                              type: object
+
+  /referrals/apply:
+    post:
+      tags: [Referrals]
+      summary: Apply an invite / referral code
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                referral_code:
+                  type: string
+                  description: Alias for `code`
+      responses:
+        "200":
+          description: Referral applied
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /hobbies:
     get:
@@ -1674,7 +1882,9 @@ paths:
     post:
       tags: [Posts]
       summary: Create a post
-      description: Multipart form with `content` (required), optional `media` file, optional `circle_id`.
+      description: |
+        Multipart form. Provide `content` and/or `media` (photo/video).
+        Optional `circle_id` posts into a joined circle; omit for community feed.
       security:
         - bearerAuth: []
       requestBody:
@@ -1683,17 +1893,18 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [content]
               properties:
                 content:
                   type: string
-                  minLength: 1
+                  maxLength: 5000
+                  description: Optional when media is attached
                 circle_id:
                   type: string
                   format: uuid
                 media:
                   type: string
                   format: binary
+                  description: JPEG/PNG (≤5MB) or MP4/MOV/WebM (≤20MB)
       responses:
         "201":
           description: Post created
@@ -1710,6 +1921,58 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /posts/{id}/share:
+    post:
+      tags: [Posts]
+      summary: Share a post into another joined circle
+      description: |
+        In-app share only (not external share). Copies content/media into the target circle
+        with attribution. Caller must be a member of `circle_id`. Same-circle share is rejected.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Source post ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [circle_id]
+              properties:
+                circle_id:
+                  type: string
+                  format: uuid
+                  description: Destination joined circle
+                comment:
+                  type: string
+                  maxLength: 500
+                  description: Optional note prepended to the shared post
+      responses:
+        "201":
+          description: Shared post created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /posts/{id}/comments:
     get:
@@ -1762,7 +2025,13 @@ paths:
               properties:
                 content:
                   type: string
-                  minLength: 3
+                  minLength: 1
+                  maxLength: 2000
+                parent_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Parent comment ID for replies
       responses:
         "201":
           description: Comment created
@@ -1897,6 +2166,60 @@ paths:
                         $ref: "#/components/schemas/Post"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Posts]
+      summary: Update own post
+      description: |
+        Multipart or JSON. Update `content` and/or replace `media`.
+        Pass `circle_id` empty/null to move to community feed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                circle_id:
+                  type: string
+                  description: UUID, or empty string / "null" to clear
+                media:
+                  type: string
+                  format: binary
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                circle_id:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Post updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Post"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       tags: [Posts]
       summary: Delete own post
@@ -1912,6 +2235,56 @@ paths:
       responses:
         "200":
           description: Post soft-deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /comments/{id}/like:
+    post:
+      tags: [Posts]
+      summary: Like a comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Comment liked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          like_count:
+                            type: integer
+                          is_liked_by_me:
+                            type: boolean
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Posts]
+      summary: Unlike a comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Comment unliked
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -2660,6 +3033,14 @@ components:
           $ref: "#/components/schemas/PostAuthor"
         content:
           type: string
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        like_count:
+          type: integer
+        is_liked_by_me:
+          type: boolean
         created_at:
           type: string
           format: date-time
