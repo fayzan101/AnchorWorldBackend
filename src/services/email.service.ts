@@ -36,11 +36,16 @@ export class EmailService {
       throw new Error("Email is not configured");
     }
 
-    const resetBase = config.frontend.url.replace(/\/$/, "");
-    const resetUrl = `${resetBase}/reset-password?token=${token}`;
+    // Password-reset links must open the installed app via App Links / Universal Links.
+    // Never send localhost (common when FRONTEND_URL is left as a local web CORS origin).
+    let resetBase = (config.frontend.url || "https://app.anchorworld.org").replace(/\/$/, "");
+    if (/localhost|127\.0\.0\.1/i.test(resetBase) || /^http:\/\/192\./i.test(resetBase)) {
+      resetBase = "https://app.anchorworld.org";
+    }
+    const resetUrl = `${resetBase}/reset-password?token=${encodeURIComponent(token)}`;
 
     const mailOptions = {
-      from: config.email.from || `"Anchor App" <${config.email.user}>`,
+      from: config.email.from || `"Anchor World" <${config.email.user}>`,
       to: email,
       subject: "Password Reset Request",
       html: `
