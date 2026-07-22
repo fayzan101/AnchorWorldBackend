@@ -310,26 +310,16 @@ export class PostService {
       throw new AppError("This post is already in that circle", 400);
     }
 
-    const authorName = source.user?.full_name?.trim() || "Member";
-    const sourceCircleName = source.circle?.name?.trim();
-    const attribution = sourceCircleName
-      ? `Shared from ${authorName} in ${sourceCircleName}`
-      : `Shared from ${authorName}`;
-
     const comment = (data.comment ?? "").trim();
     const original = (source.content ?? "").trim();
+    // Keep sharer's note + original text; attribution is via source_post_id UI link.
     let content = "";
-    if (comment) {
+    if (comment && original) {
+      content = `${comment}\n\n${original}`;
+    } else if (comment) {
       content = comment;
-      if (original) {
-        content += `\n\n${original}\n\n— ${attribution}`;
-      } else {
-        content += `\n\n— ${attribution}`;
-      }
-    } else if (original) {
-      content = `${original}\n\n— ${attribution}`;
     } else {
-      content = attribution;
+      content = original;
     }
 
     const hasMedia =
@@ -349,11 +339,22 @@ export class PostService {
       media_url: source.media_url,
       media_type: source.media_type,
       circle_id: circleId,
+      source_post_id: source.id,
       city: user.location_opt_in ? user.city ?? null : null,
       country: user.location_opt_in ? user.country ?? null : null,
     });
 
     await this.awardCreatePostPoints(userId, post);
+
+    if (source.user_id !== userId) {
+      void this.notificationService.notifyPostShared(
+        source.user_id,
+        userId,
+        user.full_name || "Someone",
+        post.id,
+        source.id
+      );
+    }
 
     const saved = await this.postRepository.findById(post.id);
     const [formatted] = await this.formatPosts([saved!], userId);
@@ -700,6 +701,10 @@ export class PostService {
       comment_count: post.comment_count,
       is_liked_by_me: likedIds.has(post.id),
       created_at: post.created_at,
+      source_post_id: post.source_post_id ?? null,
+      source_author: post.source_post?.user
+        ? this.toPostAuthor(post.source_post.user)
+        : null,
     }));
   }
 

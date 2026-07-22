@@ -42,6 +42,8 @@ import { DropUnusedDatingUserColumns1719000000016 } from "../migrations/17190000
 import { CommentLikesAndReply1719000000017 } from "../migrations/1719000000017-CommentLikesAndReply";
 import { DropUnusedDatingLookupTables1719000000018 } from "../migrations/1719000000018-DropUnusedDatingLookupTables";
 import { EmailVerification1719000000019 } from "../migrations/1719000000019-EmailVerification";
+import { CurateFeaturedCircles1719000000020 } from "../migrations/1719000000020-CurateFeaturedCircles";
+import { PostShareSourceAndNotify1719000000021 } from "../migrations/1719000000021-PostShareSourceAndNotify";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -96,6 +98,8 @@ export const AppDataSource = new DataSource({
     CommentLikesAndReply1719000000017,
     DropUnusedDatingLookupTables1719000000018,
     EmailVerification1719000000019,
+    CurateFeaturedCircles1719000000020,
+    PostShareSourceAndNotify1719000000021,
   ],
   subscribers: [],
   charset: "utf8mb4",

@@ -44,6 +44,9 @@ export class Post {
   @Column({ type: "uuid", nullable: true })
   circle_id: string | null;
 
+  @Column({ type: "uuid", nullable: true })
+  source_post_id: string | null;
+
   @Column({ type: "varchar", length: 255, nullable: true })
   city: string | null;
 
@@ -72,4 +75,8 @@ export class Post {
   @ManyToOne(() => Circle, { onDelete: "SET NULL", nullable: true })
   @JoinColumn({ name: "circle_id" })
   circle: Circle | null;
+
+  @ManyToOne(() => Post, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "source_post_id" })
+  source_post: Post | null;
 }

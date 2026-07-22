@@ -59,7 +59,7 @@ export class CircleRepository {
       slug: data.slug,
       description: data.description,
       icon_url: data.icon_url ?? null,
-      is_featured: data.is_featured ?? true,
+      is_featured: data.is_featured ?? false,
       member_count: 0,
     });
 

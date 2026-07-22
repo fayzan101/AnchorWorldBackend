@@ -25,3 +25,12 @@ export async function isEitherBlocked(
 ): Promise<boolean> {
   return getBlockRepository().isEitherBlocked(userId1, userId2);
 }
+
+/** True if blockerId has blocked blockedId (one direction). */
+export async function hasBlocked(
+  blockerId: string,
+  blockedId: string
+): Promise<boolean> {
+  const row = await getBlockRepository().findByPair(blockerId, blockedId);
+  return Boolean(row);
+}

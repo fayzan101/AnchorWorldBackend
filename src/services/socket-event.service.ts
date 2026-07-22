@@ -38,16 +38,28 @@ export function emitPostCommented(
 
 export function emitVideoCallRequest(
   receiverId: string,
-  payload: { call_id: string; caller_id: string; caller_name: string }
+  payload: {
+    call_id: string;
+    caller_id: string;
+    caller_name: string;
+    call_type?: "voice" | "video";
+  }
 ): void {
   emitToUser(receiverId, "video_call_request", payload);
 }
 
 export function emitVideoCallAccepted(
   receiverId: string,
-  payload: { call_id: string }
+  payload: { call_id: string; call_type?: "voice" | "video" }
 ): void {
   emitToUser(receiverId, "video_call_accepted", payload);
+}
+
+export function emitFollowRequestCancelled(
+  receiverId: string,
+  payload: { follow_id: string; follower_id: string }
+): void {
+  emitToUser(receiverId, "follow_request_cancelled", payload);
 }
 
 export function emitPointsUpdated(

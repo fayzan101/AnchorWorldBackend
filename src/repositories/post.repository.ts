@@ -31,7 +31,7 @@ export class PostRepository {
   async findById(id: string): Promise<Post | null> {
     return this.repo().findOne({
       where: { id },
-      relations: ["user", "user.hobbies", "circle"],
+      relations: ["user", "user.hobbies", "circle", "source_post", "source_post.user"],
       withDeleted: false,
     });
   }
@@ -39,7 +39,7 @@ export class PostRepository {
   async findByIdIncludingDeleted(id: string): Promise<Post | null> {
     return this.repo().findOne({
       where: { id },
-      relations: ["user", "user.hobbies", "circle"],
+      relations: ["user", "user.hobbies", "circle", "source_post", "source_post.user"],
       withDeleted: true,
     });
   }
@@ -82,7 +82,7 @@ export class PostRepository {
 
     const [items, total] = await this.repo().findAndCount({
       where: { user_id: userId },
-      relations: ["user", "user.hobbies", "circle"],
+      relations: ["user", "user.hobbies", "circle", "source_post", "source_post.user"],
       order: { created_at: "DESC" },
       skip: (page - 1) * limit,
       take: limit,
@@ -102,6 +102,8 @@ export class PostRepository {
       .leftJoinAndSelect("post.user", "user")
       .leftJoinAndSelect("user.hobbies", "hobbies")
       .leftJoinAndSelect("post.circle", "circle")
+      .leftJoinAndSelect("post.source_post", "source_post")
+      .leftJoinAndSelect("source_post.user", "source_author")
       .where("post.circle_id = :circleId", { circleId })
       .andWhere("post.deleted_at IS NULL");
 
@@ -141,6 +143,8 @@ export class PostRepository {
       .leftJoinAndSelect("post.user", "user")
       .leftJoinAndSelect("user.hobbies", "hobbies")
       .leftJoinAndSelect("post.circle", "circle")
+      .leftJoinAndSelect("post.source_post", "source_post")
+      .leftJoinAndSelect("source_post.user", "source_author")
       .where("post.deleted_at IS NULL");
 
     if (blockedUserIds.length > 0) {
@@ -227,7 +231,7 @@ export class PostRepository {
     }
     return this.repo().find({
       where: { id: In(ids), deleted_at: IsNull() },
-      relations: ["user", "user.hobbies", "circle"],
+      relations: ["user", "user.hobbies", "circle", "source_post", "source_post.user"],
     });
   }
 }

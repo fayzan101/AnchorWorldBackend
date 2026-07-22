@@ -126,7 +126,8 @@ export class VideoCallService {
         calleeId,
         callerId,
         caller?.full_name ?? "Someone",
-        call.id
+        call.id,
+        callType
       )
       .catch(console.error);
 
@@ -146,7 +147,11 @@ export class VideoCallService {
 
     const call = updated!;
     this.notificationService
-      .notifyVideoCallAccepted(call.caller_id, callId)
+      .notifyVideoCallAccepted(
+        call.caller_id,
+        callId,
+        (call.call_type as "voice" | "video") ?? "video"
+      )
       .catch(console.error);
 
     return this.formatCall(call);
@@ -164,7 +169,11 @@ export class VideoCallService {
     );
 
     this.notificationService
-      .notifyVideoCallRejected(call.caller_id, callId)
+      .notifyVideoCallRejected(
+        call.caller_id,
+        callId,
+        (call.call_type as "voice" | "video") ?? "video"
+      )
       .catch(console.error);
 
     return this.formatCall(updated!);

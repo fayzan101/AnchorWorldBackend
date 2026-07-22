@@ -4,7 +4,7 @@ import { ModerationController } from "../controllers/moderation.controller";
 import { authenticateToken } from "../middleware/auth.middleware";
 import { ValidationUtil } from "../utils/validation.util";
 import { validate } from "../middleware/validation.middleware";
-import { postUpload } from "../middleware/post-upload.middleware";
+import { postUpload, enforcePostMediaSize } from "../middleware/post-upload.middleware";
 import { body } from "express-validator";
 
 const router = Router();
@@ -23,6 +23,7 @@ router.get(
 router.post(
   "/",
   postUpload.single("media"),
+  enforcePostMediaSize,
   ValidationUtil.createPost(),
   validate,
   postController.createPost
@@ -69,6 +70,7 @@ router.get("/:id", postController.getPostById);
 router.patch(
   "/:id",
   postUpload.single("media"),
+  enforcePostMediaSize,
   ValidationUtil.createPost(),
   validate,
   postController.updatePost

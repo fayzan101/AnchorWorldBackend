@@ -6,7 +6,7 @@ import { PointsService } from "./points.service";
 import { PremiumService } from "./premium.service";
 import { AppError } from "../middleware/error.middleware";
 import { PaginationQuery } from "../types";
-import { isEitherBlocked } from "../utils/block.util";
+import { isEitherBlocked, hasBlocked } from "../utils/block.util";
 import {
   CHAT_UNLOCK_COST,
   FREE_CHAT_UNLOCK_MAX,
@@ -51,7 +51,8 @@ export class MessageService {
       userId,
       otherUserId
     );
-    const blocked = await isEitherBlocked(userId, otherUserId);
+    const blockedByMe = await hasBlocked(userId, otherUserId);
+    const blockedByPeer = await hasBlocked(otherUserId, userId);
     const user = await this.premiumService.ensurePlansActive(userId);
     const plan = this.premiumService.effectivePlan(user);
     const unlimited = plan !== "free";
@@ -65,22 +66,48 @@ export class MessageService {
     const peerBalance = (await this.pointsService.getBalance(otherUserId))
       .balance;
 
+    // Blocked peer must not learn they were blocked: report can_message as if
+    // messaging works when connected/unlocked. Delivery is still rejected in
+    // assertCanMessage. Only the blocker sees blocked_by_me + Unblock UI.
     const canMessage =
       connected &&
-      !blocked &&
+      !blockedByMe &&
       (unlimited || unlocked);
 
     const canUnlock =
       connected &&
-      !blocked &&
+      !blockedByMe &&
+      !blockedByPeer &&
       !unlimited &&
       !unlocked &&
       slotsUsed < FREE_CHAT_UNLOCK_MAX &&
       myBalance >= CHAT_UNLOCK_COST;
 
+    let reason: string | null = null;
+    if (!connected) {
+      reason = "not_connected";
+    } else if (blockedByMe) {
+      reason = "blocked_by_me";
+    } else if (blockedByPeer) {
+      // Appear normal — no lock banner, no "blocked" reason.
+      reason = canMessage ? null : (unlimited || unlocked)
+        ? null
+        : slotsUsed >= FREE_CHAT_UNLOCK_MAX
+          ? "slot_limit"
+          : myBalance < CHAT_UNLOCK_COST
+            ? "insufficient_points"
+            : "chat_locked";
+    } else if (!canMessage) {
+      if (slotsUsed >= FREE_CHAT_UNLOCK_MAX) reason = "slot_limit";
+      else if (myBalance < CHAT_UNLOCK_COST) reason = "insufficient_points";
+      else reason = "chat_locked";
+    }
+
     return {
       connected,
-      blocked,
+      blocked: blockedByMe, // only true when *I* blocked them (for Unblock UI)
+      blocked_by_me: blockedByMe,
+      blocked_by_peer: false, // never expose to client that peer blocked you
       plan,
       has_unlimited_chat: unlimited,
       unlocked,
@@ -92,19 +119,7 @@ export class MessageService {
       my_points_balance: myBalance,
       peer_points_balance: peerBalance,
       peer_has_enough_points: true,
-      reason: !connected
-        ? "not_connected"
-        : blocked
-          ? "blocked"
-          : canMessage
-            ? null
-            : unlocked
-              ? null
-              : slotsUsed >= FREE_CHAT_UNLOCK_MAX
-                ? "slot_limit"
-                : myBalance < CHAT_UNLOCK_COST
-                  ? "insufficient_points"
-                  : "chat_locked",
+      reason,
     };
   }
 
@@ -201,7 +216,8 @@ export class MessageService {
 
   private async assertCanMessage(senderId: string, receiverId: string) {
     if (await isEitherBlocked(senderId, receiverId)) {
-      throw new AppError("Cannot message this user", 403);
+      // Generic — never say "blocked" so the blocked user isn't tipped off.
+      throw new AppError("Couldn't send message", 403, true, "MESSAGE_UNAVAILABLE");
     }
 
     const areMutualFollowers = await this.followRepository.checkMutualFollow(

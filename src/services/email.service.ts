@@ -47,16 +47,29 @@ export class EmailService {
     const mailOptions = {
       from: config.email.from || `"Anchor World" <${config.email.user}>`,
       to: email,
-      subject: "Password Reset Request",
+      subject: "Reset your Anchor World password",
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Password Reset Request</h2>
-          <p>You requested to reset your password. Click the button below to reset it:</p>
-          <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0;">Reset Password</a>
-          <p>Or copy and paste this link into your browser:</p>
-          <p style="color: #007bff; word-break: break-all;">${resetUrl}</p>
-          <p style="color: #666; font-size: 14px; margin-top: 30px;">This link will expire in 1 hour.</p>
-          <p style="color: #666; font-size: 14px;">If you didn't request this, please ignore this email.</p>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background: #f4f7fb;">
+          <div style="background: #ffffff; border-radius: 16px; padding: 32px 28px; box-shadow: 0 8px 24px rgba(26,35,50,0.06);">
+            <h2 style="margin: 0 0 12px; color: #1a2332; font-size: 22px;">Reset your password</h2>
+            <p style="margin: 0 0 24px; color: #4b5565; line-height: 1.5;">
+              We received a request to reset your Anchor World password. Tap the button below to choose a new one.
+            </p>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 24px;">
+              <tr>
+                <td align="center" bgcolor="#1f6feb" style="border-radius: 12px;">
+                  <a href="${resetUrl}"
+                     target="_blank"
+                     style="display: inline-block; padding: 14px 28px; font-size: 16px; font-weight: 700; color: #ffffff; text-decoration: none; border-radius: 12px;">
+                    Reset password
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin: 0; color: #6b7280; font-size: 13px; line-height: 1.45;">
+              This button expires in 1 hour. If you didn’t request a reset, you can ignore this email.
+            </p>
+          </div>
         </div>
       `,
     };

@@ -1,6 +1,13 @@
 import { AppDataSource, initializeDatabase } from "../config/database";
 import { CircleRepository } from "../repositories/circle.repository";
 
+/** Only these slugs appear in the Featured carousel. */
+const FEATURED_SLUGS = new Set([
+  "fitness-health",
+  "food-cooking",
+  "books-reading",
+]);
+
 const SEED_CIRCLES = [
   {
     name: "Fitness & Health",
@@ -66,9 +73,11 @@ export async function seedCircles(): Promise<void> {
   for (const circle of SEED_CIRCLES) {
     await circleRepository.upsertBySlug({
       ...circle,
-      is_featured: true,
+      is_featured: FEATURED_SLUGS.has(circle.slug),
     });
-    console.log(`✓ Circle seeded: ${circle.name}`);
+    console.log(
+      `✓ Circle seeded: ${circle.name}${FEATURED_SLUGS.has(circle.slug) ? " (featured)" : ""}`
+    );
   }
 }
 

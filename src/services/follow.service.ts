@@ -157,6 +157,10 @@ export class FollowService {
       throw new AppError("Not authorized to remove this follow", 403);
     }
 
+    const wasPending = follow.status === "pending";
+    const followerId = follow.follower_id;
+    const followingId = follow.following_id;
+
     if (follow.status === "accepted") {
       const reverseFollow = await this.followRepository.findByUsers(
         follow.following_id,
@@ -169,6 +173,17 @@ export class FollowService {
     }
 
     await this.followRepository.delete(followId);
+
+    // When sender cancels a pending request, receiver's Received list must drop it.
+    if (wasPending && followerId === userId) {
+      const { emitFollowRequestCancelled } = await import(
+        "./socket-event.service"
+      );
+      emitFollowRequestCancelled(followingId, {
+        follow_id: followId,
+        follower_id: followerId,
+      });
+    }
 
     return { message: "Follow removed successfully" };
   }
