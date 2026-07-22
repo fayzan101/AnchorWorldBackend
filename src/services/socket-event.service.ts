@@ -62,6 +62,13 @@ export function emitFollowRequestCancelled(
   emitToUser(receiverId, "follow_request_cancelled", payload);
 }
 
+export function emitChatUnlocked(
+  userId: string,
+  payload: { peer_id: string; unlocked_by: string }
+): void {
+  emitToUser(userId, "chat_unlocked", payload);
+}
+
 export function emitPointsUpdated(
   userId: string,
   payload: { balance: number }

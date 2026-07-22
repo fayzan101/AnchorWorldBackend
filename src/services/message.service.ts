@@ -13,6 +13,7 @@ import {
   PointTypes,
 } from "../constants/point-types";
 import { normalizeChatPair } from "../entities/ChatUnlock.entity";
+import { emitChatUnlocked } from "./socket-event.service";
 
 export class MessageService {
   private messageRepository: MessageRepository;
@@ -158,11 +159,17 @@ export class MessageService {
       otherUserId
     );
     if (existing) {
+      const access = await this.getChatAccess(userId, otherUserId);
+      emitChatUnlocked(otherUserId, {
+        peer_id: userId,
+        unlocked_by: existing.unlocked_by,
+      });
       return {
-        ...(await this.getChatAccess(userId, otherUserId)),
+        ...access,
         unlocked: true,
         already_unlocked: true,
         points_spent: 0,
+        can_message: true,
       };
     }
 
@@ -203,6 +210,12 @@ export class MessageService {
       userId2: otherUserId,
       unlockedBy: userId,
       pointsSpent: CHAT_UNLOCK_COST,
+    });
+
+    // Notify peer so their chat composer unlocks without a reload.
+    emitChatUnlocked(otherUserId, {
+      peer_id: userId,
+      unlocked_by: userId,
     });
 
     return {

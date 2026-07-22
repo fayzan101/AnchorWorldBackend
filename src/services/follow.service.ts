@@ -5,6 +5,7 @@ import { NotificationService } from "./notification.service";
 import { PointsService } from "./points.service";
 import { PointAmounts, PointTypes } from "../constants/point-types";
 import { isEitherBlocked, getBlockedUserIds } from "../utils/block.util";
+import { emitFollowRequestCancelled } from "./socket-event.service";
 
 export class FollowService {
   private followRepository: FollowRepository;
@@ -176,9 +177,6 @@ export class FollowService {
 
     // When sender cancels a pending request, receiver's Received list must drop it.
     if (wasPending && followerId === userId) {
-      const { emitFollowRequestCancelled } = await import(
-        "./socket-event.service"
-      );
       emitFollowRequestCancelled(followingId, {
         follow_id: followId,
         follower_id: followerId,
