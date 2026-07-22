@@ -10,6 +10,7 @@ import { PointTypes } from "../constants/point-types";
 
 jest.mock("../utils/block.util", () => ({
   isEitherBlocked: jest.fn().mockResolvedValue(false),
+  hasBlocked: jest.fn().mockResolvedValue(false),
 }));
 
 describe("MessageService chat unlock", () => {
@@ -114,6 +115,28 @@ describe("MessageService chat unlock", () => {
     expect(chatUnlockRepository.createUnlock).toHaveBeenCalled();
     expect(result.unlocked).toBe(true);
     expect(result.points_spent).toBe(50);
+  });
+
+  it("allows the other free user to send after pair unlock", async () => {
+    chatUnlockRepository.isUnlocked.mockResolvedValue(true);
+    messageRepository.create.mockResolvedValue({
+      id: "m2",
+      sender_id: peerId,
+      receiver_id: userId,
+      content: "reply",
+      is_read: false,
+      created_at: new Date(),
+    } as never);
+    userRepository.findById.mockImplementation(async (id: string) => {
+      if (id === peerId) {
+        return { id: peerId, full_name: "Peer", profile_picture: null } as User;
+      }
+      return { id: userId, full_name: "Me", profile_picture: null } as User;
+    });
+
+    const msg = await service.sendMessage(peerId, userId, "reply");
+    expect(msg.content).toBe("reply");
+    expect(chatUnlockRepository.isUnlocked).toHaveBeenCalledWith(peerId, userId);
   });
 
   it("rejects unlock when slot limit reached", async () => {

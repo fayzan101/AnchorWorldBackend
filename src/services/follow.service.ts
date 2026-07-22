@@ -5,6 +5,7 @@ import { NotificationService } from "./notification.service";
 import { PointsService } from "./points.service";
 import { PointAmounts, PointTypes } from "../constants/point-types";
 import { isEitherBlocked, getBlockedUserIds } from "../utils/block.util";
+import { emitFollowRequestCancelled } from "./socket-event.service";
 
 export class FollowService {
   private followRepository: FollowRepository;
@@ -157,6 +158,10 @@ export class FollowService {
       throw new AppError("Not authorized to remove this follow", 403);
     }
 
+    const wasPending = follow.status === "pending";
+    const followerId = follow.follower_id;
+    const followingId = follow.following_id;
+
     if (follow.status === "accepted") {
       const reverseFollow = await this.followRepository.findByUsers(
         follow.following_id,
@@ -169,6 +174,14 @@ export class FollowService {
     }
 
     await this.followRepository.delete(followId);
+
+    // When sender cancels a pending request, receiver's Received list must drop it.
+    if (wasPending && followerId === userId) {
+      emitFollowRequestCancelled(followingId, {
+        follow_id: followId,
+        follower_id: followerId,
+      });
+    }
 
     return { message: "Follow removed successfully" };
   }

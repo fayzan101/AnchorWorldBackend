@@ -364,6 +364,40 @@ export class NotificationService {
     });
   }
 
+  async notifyPostShared(
+    postOwnerId: string,
+    sharerId: string,
+    sharerName: string,
+    sharedPostId: string,
+    sourcePostId: string
+  ): Promise<boolean> {
+    if (postOwnerId === sharerId) {
+      return false;
+    }
+
+    const shareData = await this.withActorPic(sharerId, {
+      screen: "Post",
+      postId: sharedPostId,
+      sourcePostId,
+      userId: sharerId,
+    });
+
+    await this.persistNotification(
+      postOwnerId,
+      "Post Shared",
+      `${sharerName} shared your post`,
+      NotificationType.POST_SHARED,
+      shareData
+    );
+
+    return await this.sendToUser(postOwnerId, {
+      title: "Post Shared",
+      body: `${sharerName} shared your post`,
+      type: NotificationType.POST_SHARED,
+      data: shareData,
+    });
+  }
+
   async notifyPointsMilestone(
     userId: string,
     balance: number
@@ -394,70 +428,83 @@ export class NotificationService {
     calleeId: string,
     callerId: string,
     callerName: string,
-    callId: string
+    callId: string,
+    callType: "voice" | "video" = "video"
   ): Promise<boolean> {
+    const isVoice = callType === "voice";
+    const title = isVoice ? "Incoming voice call" : "Incoming video call";
+    const body = isVoice
+      ? `${callerName} is calling you`
+      : `${callerName} is video calling you`;
+
     emitVideoCallRequest(calleeId, {
       call_id: callId,
       caller_id: callerId,
       caller_name: callerName,
+      call_type: callType,
     });
 
     await this.persistNotification(
       calleeId,
-      "Video Intro Request",
-      `${callerName} wants a guided video intro`,
+      title,
+      body,
       NotificationType.VIDEO_CALL_REQUEST,
-      { screen: "VideoIntro", callId, callerId }
+      { screen: "VideoIntro", callId, callerId, call_type: callType }
     );
 
     return await this.sendToUser(calleeId, {
-      title: "Video Intro Request",
-      body: `${callerName} wants a guided video intro`,
+      title,
+      body,
       type: NotificationType.VIDEO_CALL_REQUEST,
-      data: { screen: "VideoIntro", callId, callerId },
+      data: { screen: "VideoIntro", callId, callerId, call_type: callType },
       highPriority: true,
     });
   }
 
   async notifyVideoCallAccepted(
     callerId: string,
-    callId: string
+    callId: string,
+    callType: "voice" | "video" = "video"
   ): Promise<boolean> {
-    emitVideoCallAccepted(callerId, { call_id: callId });
+    emitVideoCallAccepted(callerId, { call_id: callId, call_type: callType });
+    const kind = callType === "voice" ? "voice call" : "video call";
 
     await this.persistNotification(
       callerId,
-      "Video Intro Accepted",
-      "Your video intro request was accepted",
+      "Call accepted",
+      `Your ${kind} was accepted`,
       NotificationType.VIDEO_CALL_ACCEPTED,
-      { screen: "VideoIntro", callId }
+      { screen: "VideoIntro", callId, call_type: callType }
     );
 
     return await this.sendToUser(callerId, {
-      title: "Video Intro Accepted",
-      body: "Your video intro request was accepted",
+      title: "Call accepted",
+      body: `Your ${kind} was accepted`,
       type: NotificationType.VIDEO_CALL_ACCEPTED,
-      data: { screen: "VideoIntro", callId },
+      data: { screen: "VideoIntro", callId, call_type: callType },
     });
   }
 
   async notifyVideoCallRejected(
     callerId: string,
-    callId: string
+    callId: string,
+    callType: "voice" | "video" = "video"
   ): Promise<boolean> {
+    const kind = callType === "voice" ? "voice call" : "video call";
+
     await this.persistNotification(
       callerId,
-      "Video Intro Declined",
-      "Your video intro request was declined",
+      "Call declined",
+      `Your ${kind} was declined`,
       NotificationType.VIDEO_CALL_REJECTED,
-      { screen: "VideoIntro", callId }
+      { screen: "VideoIntro", callId, call_type: callType }
     );
 
     return await this.sendToUser(callerId, {
-      title: "Video Intro Declined",
-      body: "Your video intro request was declined",
+      title: "Call declined",
+      body: `Your ${kind} was declined`,
       type: NotificationType.VIDEO_CALL_REJECTED,
-      data: { screen: "VideoIntro", callId },
+      data: { screen: "VideoIntro", callId, call_type: callType },
     });
   }
 

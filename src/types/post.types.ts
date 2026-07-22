@@ -23,6 +23,8 @@ export interface PostResponse {
   comment_count: number;
   is_liked_by_me: boolean;
   created_at: Date;
+  source_post_id: string | null;
+  source_author: PostAuthor | null;
 }
 
 export interface PostCommentResponse {

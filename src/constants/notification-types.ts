@@ -11,6 +11,7 @@ export enum NotificationType {
   VIDEO_CALL_REJECTED = "video_call_rejected",
   CONNECTION_MADE = "connection_made",
   CIRCLE_JOIN = "circle_join",
+  POST_SHARED = "post_shared",
 }
 
 export const POINTS_MILESTONE_BALANCE = 500;
