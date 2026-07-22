@@ -162,7 +162,9 @@ export class NotificationService {
       if (pic) {
         return { ...data, profile_picture: pic, actor_profile_picture: pic };
       }
-    } catch (_) {}
+    } catch {
+      // Actor profile lookup is best-effort for push payloads.
+    }
     return data;
   }
 
