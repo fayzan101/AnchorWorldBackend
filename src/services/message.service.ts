@@ -76,8 +76,7 @@ export class MessageService {
       !unlimited &&
       !unlocked &&
       slotsUsed < FREE_CHAT_UNLOCK_MAX &&
-      myBalance >= CHAT_UNLOCK_COST &&
-      peerBalance >= CHAT_UNLOCK_COST;
+      myBalance >= CHAT_UNLOCK_COST;
 
     return {
       connected,
@@ -92,7 +91,7 @@ export class MessageService {
       chat_slots_max: unlimited ? null : FREE_CHAT_UNLOCK_MAX,
       my_points_balance: myBalance,
       peer_points_balance: peerBalance,
-      peer_has_enough_points: peerBalance >= CHAT_UNLOCK_COST,
+      peer_has_enough_points: true,
       reason: !connected
         ? "not_connected"
         : blocked
@@ -105,9 +104,7 @@ export class MessageService {
                 ? "slot_limit"
                 : myBalance < CHAT_UNLOCK_COST
                   ? "insufficient_points"
-                  : peerBalance < CHAT_UNLOCK_COST
-                    ? "peer_insufficient_points"
-                    : "chat_locked",
+                  : "chat_locked",
     };
   }
 
@@ -166,22 +163,12 @@ export class MessageService {
     }
 
     const myBalance = (await this.pointsService.getBalance(userId)).balance;
-    const peerBalance = (await this.pointsService.getBalance(otherUserId))
-      .balance;
     if (myBalance < CHAT_UNLOCK_COST) {
       throw new AppError(
         `You need ${CHAT_UNLOCK_COST} points to unlock chat`,
         402,
         true,
         "INSUFFICIENT_POINTS"
-      );
-    }
-    if (peerBalance < CHAT_UNLOCK_COST) {
-      throw new AppError(
-        `The other person needs at least ${CHAT_UNLOCK_COST} points before chat can be unlocked`,
-        403,
-        true,
-        "PEER_INSUFFICIENT_POINTS"
       );
     }
 

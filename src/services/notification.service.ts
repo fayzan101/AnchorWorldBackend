@@ -152,6 +152,20 @@ export class NotificationService {
     }
   }
 
+  private async withActorPic(
+    actorId: string,
+    data: Record<string, string>
+  ): Promise<Record<string, string>> {
+    try {
+      const user = await this.userRepository.findById(actorId);
+      const pic = user?.profile_picture?.toString() ?? "";
+      if (pic) {
+        return { ...data, profile_picture: pic, actor_profile_picture: pic };
+      }
+    } catch (_) {}
+    return data;
+  }
+
   async notifyNewMessage(
     receiverId: string,
     senderName: string,
@@ -163,13 +177,13 @@ export class NotificationService {
         ? messagePreview.substring(0, 100) + "..."
         : messagePreview;
 
-    const data = {
+    const data = await this.withActorPic(senderId, {
       screen: "Chat",
       senderId,
       sender_id: senderId,
       senderName,
       peerId: senderId,
-    };
+    });
 
     await this.persistNotification(
       receiverId,
@@ -192,19 +206,24 @@ export class NotificationService {
     senderName: string,
     senderId: string
   ): Promise<boolean> {
+    const data = await this.withActorPic(senderId, {
+      screen: "ConnectionRequests",
+      senderId,
+    });
+
     await this.persistNotification(
       receiverId,
       "New Connection Request",
       `${senderName} sent you a connection request`,
       NotificationType.FRIEND_REQUEST,
-      { screen: "ConnectionRequests", senderId }
+      data
     );
 
     return await this.sendToUser(receiverId, {
       title: "New Connection Request",
       body: `${senderName} sent you a connection request`,
       type: NotificationType.FRIEND_REQUEST,
-      data: { screen: "ConnectionRequests", senderId },
+      data,
     });
   }
 
@@ -222,19 +241,23 @@ export class NotificationService {
     accepterName: string,
     accepterId: string
   ): Promise<boolean> {
+    const data = await this.withActorPic(accepterId, {
+      screen: "Profile",
+      userId: accepterId,
+    });
     await this.persistNotification(
       receiverId,
       "Connection Made",
       `${accepterName} is now your connection`,
       NotificationType.CONNECTION_MADE,
-      { screen: "Profile", userId: accepterId }
+      data
     );
 
     return await this.sendToUser(receiverId, {
       title: "Connection Made",
       body: `${accepterName} is now your connection`,
       type: NotificationType.CONNECTION_MADE,
-      data: { screen: "Profile", userId: accepterId },
+      data,
     });
   }
 
@@ -284,19 +307,25 @@ export class NotificationService {
       user_name: likerName,
     });
 
+    const likeData = await this.withActorPic(likerId, {
+      screen: "Post",
+      postId,
+      userId: likerId,
+    });
+
     await this.persistNotification(
       postOwnerId,
       "Post Liked",
       `${likerName} liked your post`,
       NotificationType.POST_LIKED,
-      { screen: "Post", postId, userId: likerId }
+      likeData
     );
 
     return await this.sendToUser(postOwnerId, {
       title: "Post Liked",
       body: `${likerName} liked your post`,
       type: NotificationType.POST_LIKED,
-      data: { screen: "Post", postId, userId: likerId },
+      data: likeData,
     });
   }
 

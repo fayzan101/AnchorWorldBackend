@@ -133,10 +133,12 @@ export class SocketHandler {
         });
       } catch (error) {
         console.error("Error sending message:", error);
+        const appErr = error as { message?: string; code?: string };
         socket.emit("message_error", {
           success: false,
           error:
             error instanceof Error ? error.message : "Failed to send message",
+          code: appErr?.code ?? null,
           client_message_id: clientMessageId ?? null,
         });
       }

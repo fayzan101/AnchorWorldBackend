@@ -4,7 +4,7 @@ import { AppError } from "../middleware/error.middleware";
 import { NotificationService } from "./notification.service";
 import { PointsService } from "./points.service";
 import { PointAmounts, PointTypes } from "../constants/point-types";
-import { isEitherBlocked } from "../utils/block.util";
+import { isEitherBlocked, getBlockedUserIds } from "../utils/block.util";
 
 export class FollowService {
   private followRepository: FollowRepository;
@@ -205,16 +205,19 @@ export class FollowService {
 
   async getConnections(userId: string) {
     const connections = await this.followRepository.getMatches(userId);
+    const blockedIds = new Set(await getBlockedUserIds(userId));
 
-    return connections.map((connection) => ({
-      id: connection.id,
-      full_name: connection.full_name,
-      profile_picture: connection.profile_picture,
-      bio: connection.bio,
-      city: connection.city ?? connection.location ?? null,
-      is_online: connection.is_online,
-      last_seen: connection.last_seen,
-    }));
+    return connections
+      .filter((connection) => !blockedIds.has(connection.id))
+      .map((connection) => ({
+        id: connection.id,
+        full_name: connection.full_name,
+        profile_picture: connection.profile_picture,
+        bio: connection.bio,
+        city: connection.city ?? connection.location ?? null,
+        is_online: connection.is_online,
+        last_seen: connection.last_seen,
+      }));
   }
 
   async checkMutualFollow(user1Id: string, user2Id: string): Promise<boolean> {
