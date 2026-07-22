@@ -28,11 +28,17 @@ import videoCallRoutes from "./routes/video-call.routes";
 import adminRoutes from "./routes/admin.routes";
 import metricsRoutes from "./routes/metrics.routes";
 import locationRoutes from "./routes/location.routes";
+import { deepLinkRouter } from "./routes/deep-link.routes";
 
 export function createApp(): Application {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Allow the deep-link bridge pages to run a tiny inline redirect script.
+      contentSecurityPolicy: false,
+    })
+  );
   app.use(
     cors({
       origin: config.cors.origin,
@@ -62,6 +68,9 @@ export function createApp(): Application {
     res.sendFile(path.join(process.cwd(), ".well-known", "apple-app-site-association"));
   });
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+  // App Link fallbacks (must be before API 404 JSON handler)
+  app.use(deepLinkRouter);
 
   const apiPrefix = config.server.apiPrefix;
 
