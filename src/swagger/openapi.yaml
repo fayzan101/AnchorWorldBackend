@@ -5,11 +5,6 @@ info:
     REST API for the Anchor World mobile app (topic communities).
 
     **API base:** `/api` (configurable via `API_PREFIX`)
-
-    **Password reset emails** link to `https://app.anchorworld.org/reset-password?token=…`
-    (HTML bridge → `anchor://` deep link). Same pattern for invite links under `/invite/{code}`.
-
-    Removed dating-era endpoints: `/likes`, `/relationship-goals`, `/partner-qualities`.
   version: 1.1.0
   contact:
     name: Anchor World API Support
