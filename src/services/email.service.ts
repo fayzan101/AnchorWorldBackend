@@ -76,14 +76,14 @@ export class EmailService {
     }
 
     const mailOptions = {
-      from: config.email.from || `"Anchor App" <${config.email.user}>`,
+      from: config.email.from || `"Anchor World" <${config.email.user}>`,
       to: email,
-      subject: "Welcome to Dating App!",
+      subject: "Welcome to Anchor World!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Welcome, ${fullName}!</h2>
-          <p>Thank you for joining our dating app. We're excited to have you here!</p>
-          <p>Start exploring and connect with amazing people today.</p>
+          <p>Thank you for joining Anchor World. We're excited to have you in the community!</p>
+          <p>Start exploring circles, connect with people who share your interests, and share your story.</p>
           <p style="color: #666; font-size: 14px; margin-top: 30px;">If you have any questions, feel free to reach out to our support team.</p>
         </div>
       `,
@@ -94,6 +94,41 @@ export class EmailService {
       console.log(`Welcome email sent to ${email}`);
     } catch {
       // Welcome email is best-effort; never fail registration or tests.
+    }
+  }
+
+  async sendEmailVerificationCode(
+    email: string,
+    code: string,
+    fullName?: string
+  ): Promise<void> {
+    if (!this.transporter) {
+      throw new Error("Email is not configured");
+    }
+
+    const greeting = fullName ? `Hi ${fullName},` : "Hi,";
+    const mailOptions = {
+      from: config.email.from || `"Anchor World" <${config.email.user}>`,
+      to: email,
+      subject: "Verify your Anchor World email",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Verify your email</h2>
+          <p>${greeting}</p>
+          <p>Use this code to finish creating your Anchor World account:</p>
+          <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #1f6feb; margin: 24px 0;">${code}</p>
+          <p style="color: #666; font-size: 14px;">This code expires in 15 minutes.</p>
+          <p style="color: #666; font-size: 14px;">If you didn't create an account, you can ignore this email.</p>
+        </div>
+      `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Email verification code sent to ${email}`);
+    } catch (error) {
+      console.error("Error sending verification email:", error);
+      throw new Error("Failed to send verification email");
     }
   }
 }

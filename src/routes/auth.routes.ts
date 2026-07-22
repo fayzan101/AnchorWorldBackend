@@ -72,4 +72,30 @@ router.post(
  */
 router.post('/logout', authController.logout);
 
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify email with 6-digit code from signup email
+ * @access  Public
+ */
+router.post(
+  '/verify-email',
+  authLimiter,
+  ValidationUtil.verifyEmail(),
+  validate,
+  authController.verifyEmail
+);
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend email verification code
+ * @access  Public
+ */
+router.post(
+  '/resend-verification',
+  authLimiter,
+  ValidationUtil.resendVerification(),
+  validate,
+  authController.resendVerification
+);
+
 export default router;

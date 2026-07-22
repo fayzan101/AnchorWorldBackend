@@ -105,4 +105,32 @@ export class AuthController {
       next(error);
     }
   };
+
+  verifyEmail = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { email, code } = req.body;
+      const result = await this.authService.verifyEmail(email, code);
+      ResponseUtil.success(res, result, "Email verified successfully");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resendVerification = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { email } = req.body;
+      const result = await this.authService.resendVerification(email);
+      ResponseUtil.success(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }

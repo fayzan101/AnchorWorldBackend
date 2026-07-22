@@ -41,6 +41,7 @@ export class AuthService {
       full_name: data.full_name,
       date_of_birth: new Date(data.date_of_birth),
       gender: data.gender,
+      email_verified_at: null,
     });
 
     // Generate personal referral code
@@ -63,6 +64,27 @@ export class AuthService {
       }
     }
 
+    const emailConfigured = EmailService.isConfigured() && process.env.NODE_ENV !== 'test';
+    let emailVerificationRequired = false;
+
+    if (emailConfigured) {
+      const code = this.generateVerificationCode();
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+      await this.userRepository.setEmailVerificationCode(user.id, code, expiresAt);
+      emailVerificationRequired = true;
+      try {
+        await this.emailService.sendEmailVerificationCode(user.email, code, user.full_name);
+      } catch (error) {
+        // Keep the account + code; client can open verify screen and tap Resend.
+        console.error("[register] Failed to send verification email:", error);
+      }
+    } else {
+      // Dev/CI without SMTP: mark verified so local flows keep working.
+      await this.userRepository.markEmailVerified(user.id);
+      user.email_verified_at = new Date();
+    }
+
     // Generate tokens
     const accessToken = generateAccessToken({ id: user.id, email: user.email });
     const refreshToken = generateRefreshToken({ id: user.id, email: user.email });
@@ -72,13 +94,14 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + 7);
     await this.refreshTokenRepository.create(user.id, refreshToken, expiresAt);
 
-    // Welcome email is best-effort and skipped when SMTP is not configured (e.g. CI).
-    void this.emailService.sendWelcomeEmail(user.email, user.full_name);
-
     return {
-      user,
+      user: {
+        ...user,
+        email_verified_at: emailVerificationRequired ? null : user.email_verified_at ?? new Date(),
+      },
       access_token: accessToken,
       refresh_token: refreshToken,
+      email_verification_required: emailVerificationRequired,
     };
   }
 
@@ -100,6 +123,23 @@ export class AuthService {
       throw new AppError('Invalid email or password', 401);
     }
 
+    if (!user.email_verified_at) {
+      // Refresh OTP so they can finish verification from sign-in.
+      if (EmailService.isConfigured() && process.env.NODE_ENV !== 'test') {
+        try {
+          await this.issueVerificationCode(user.id, user.email, user.full_name);
+        } catch (error) {
+          console.error("[login] Failed to resend verification email:", error);
+        }
+      }
+      throw new AppError(
+        'Please verify your email before signing in. We sent you a new code.',
+        403,
+        true,
+        'EMAIL_NOT_VERIFIED'
+      );
+    }
+
     // Generate tokens
     const accessToken = generateAccessToken({ id: user.id, email: user.email });
     const refreshToken = generateRefreshToken({ id: user.id, email: user.email });
@@ -117,6 +157,89 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: refreshToken,
     };
+  }
+
+  async verifyEmail(email: string, code: string) {
+    const user = await this.userRepository.findByEmailWithVerification(email.trim().toLowerCase());
+    if (!user) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    if (user.email_verified_at) {
+      return { message: 'Email already verified', email_verified: true };
+    }
+
+    const stored = (user.email_verification_code || '').trim();
+    const expires = user.email_verification_expires;
+    if (!stored || !expires || expires < new Date()) {
+      throw new AppError('Verification code expired. Please request a new one.', 400);
+    }
+    if (stored !== code.trim()) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    await this.userRepository.markEmailVerified(user.id);
+    void this.emailService.sendWelcomeEmail(user.email, user.full_name);
+
+    // Issue tokens so verify-from-login (no prior session) can continue.
+    const accessToken = generateAccessToken({ id: user.id, email: user.email });
+    const refreshToken = generateRefreshToken({ id: user.id, email: user.email });
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    await this.refreshTokenRepository.deleteByUserId(user.id);
+    await this.refreshTokenRepository.create(user.id, refreshToken, expiresAt);
+
+    return {
+      message: 'Email verified successfully',
+      email_verified: true,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user,
+    };
+  }
+
+  async resendVerification(email: string) {
+    const normalized = email.trim().toLowerCase();
+    const user = await this.userRepository.findByEmail(normalized);
+    // Do not reveal whether the email exists.
+    if (!user) {
+      return { message: 'If an account exists, a verification code has been sent' };
+    }
+    if (user.email_verified_at) {
+      return { message: 'Email is already verified' };
+    }
+    if (!EmailService.isConfigured() || process.env.NODE_ENV === 'test') {
+      await this.userRepository.markEmailVerified(user.id);
+      return { message: 'Email verified (email delivery unavailable in this environment)' };
+    }
+
+    try {
+      await this.issueVerificationCode(user.id, user.email, user.full_name);
+    } catch (error) {
+      console.error("[resend-verification] Failed to send email:", error);
+      throw new AppError(
+        "Unable to send verification email. Please try again later.",
+        503
+      );
+    }
+
+    return { message: 'If an account exists, a verification code has been sent' };
+  }
+
+  private generateVerificationCode(): string {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  }
+
+  private async issueVerificationCode(
+    userId: string,
+    email: string,
+    fullName: string
+  ): Promise<void> {
+    const code = this.generateVerificationCode();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+    await this.userRepository.setEmailVerificationCode(userId, code, expiresAt);
+    await this.emailService.sendEmailVerificationCode(email, code, fullName);
   }
 
   async refreshAccessToken(refreshToken: string) {

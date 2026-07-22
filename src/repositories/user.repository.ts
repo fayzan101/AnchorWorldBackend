@@ -210,6 +210,35 @@ export class UserRepository {
     });
   }
 
+  async setEmailVerificationCode(
+    id: string,
+    code: string,
+    expiresAt: Date
+  ): Promise<void> {
+    await this.repository.update(id, {
+      email_verification_code: code,
+      email_verification_expires: expiresAt,
+      email_verified_at: null,
+    });
+  }
+
+  async findByEmailWithVerification(email: string): Promise<User | null> {
+    return await this.repository
+      .createQueryBuilder("user")
+      .addSelect("user.email_verification_code")
+      .addSelect("user.email_verification_expires")
+      .where("user.email = :email", { email })
+      .getOne();
+  }
+
+  async markEmailVerified(id: string): Promise<void> {
+    await this.repository.update(id, {
+      email_verified_at: new Date(),
+      email_verification_code: null,
+      email_verification_expires: null,
+    });
+  }
+
   async save(userData: Partial<User>): Promise<User> {
     return await this.repository.save(userData);
   }

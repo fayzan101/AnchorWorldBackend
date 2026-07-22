@@ -279,6 +279,51 @@ paths:
         "200":
           description: Logged out
 
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify email with 6-digit signup code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  example: "123456"
+      responses:
+        "200":
+          description: Email verified; returns tokens
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Resend email verification code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Accepted (does not reveal whether email exists)
+        "503":
+          description: Email delivery unavailable
+
   /reset-password:
     get:
       tags: [Deep Links]

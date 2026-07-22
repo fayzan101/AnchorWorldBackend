@@ -98,6 +98,15 @@ export class User {
   @Column({ type: "timestamp", nullable: true, select: false })
   reset_token_expires: Date | null;
 
+  @Column({ type: "timestamp", nullable: true })
+  email_verified_at: Date | null;
+
+  @Column({ type: "varchar", length: 16, nullable: true, select: false })
+  email_verification_code: string | null;
+
+  @Column({ type: "timestamp", nullable: true, select: false })
+  email_verification_expires: Date | null;
+
   // FCM Token for push notifications
   @Column({ type: "varchar", length: 500, nullable: true })
   fcm_token: string | null;

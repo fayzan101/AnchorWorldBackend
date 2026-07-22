@@ -72,6 +72,8 @@ export interface OwnProfile extends PublicUserProfile {
   profile_completed: boolean;
   onboarding_completed_at: Date | null;
   intro_video_url: string | null;
+  email_verified_at: Date | null;
+  email_verified: boolean;
   /** Topic IDs for edit-profile rehydration */
   hobbies: HobbyRef[];
 }

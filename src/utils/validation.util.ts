@@ -153,6 +153,28 @@ export class ValidationUtil {
     ];
   }
 
+  static verifyEmail(): ValidationChain[] {
+    return [
+      body("email")
+        .isEmail()
+        .withMessage("Invalid email format")
+        .normalizeEmail(),
+      body("code")
+        .trim()
+        .matches(/^\d{6}$/)
+        .withMessage("Enter the 6-digit verification code"),
+    ];
+  }
+
+  static resendVerification(): ValidationChain[] {
+    return [
+      body("email")
+        .isEmail()
+        .withMessage("Invalid email format")
+        .normalizeEmail(),
+    ];
+  }
+
   static feedQuery(): ValidationChain[] {
     return [
       ...this.pagination(),

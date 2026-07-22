@@ -41,6 +41,7 @@ import { MessageSoftDelete1719000000015 } from "../migrations/1719000000015-Mess
 import { DropUnusedDatingUserColumns1719000000016 } from "../migrations/1719000000016-DropUnusedDatingUserColumns";
 import { CommentLikesAndReply1719000000017 } from "../migrations/1719000000017-CommentLikesAndReply";
 import { DropUnusedDatingLookupTables1719000000018 } from "../migrations/1719000000018-DropUnusedDatingLookupTables";
+import { EmailVerification1719000000019 } from "../migrations/1719000000019-EmailVerification";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -94,6 +95,7 @@ export const AppDataSource = new DataSource({
     DropUnusedDatingUserColumns1719000000016,
     CommentLikesAndReply1719000000017,
     DropUnusedDatingLookupTables1719000000018,
+    EmailVerification1719000000019,
   ],
   subscribers: [],
   charset: "utf8mb4",
