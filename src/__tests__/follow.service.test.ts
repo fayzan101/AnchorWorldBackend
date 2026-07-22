@@ -11,9 +11,10 @@ import { FollowStatus } from "../types";
 
 jest.mock("../utils/block.util", () => ({
   isEitherBlocked: jest.fn().mockResolvedValue(false),
+  getBlockedUserIds: jest.fn().mockResolvedValue([]),
 }));
 
-import { isEitherBlocked } from "../utils/block.util";
+import { isEitherBlocked, getBlockedUserIds } from "../utils/block.util";
 
 describe("FollowService", () => {
   const followerId = "user-a";
@@ -40,6 +41,7 @@ describe("FollowService", () => {
 
   beforeEach(() => {
     jest.mocked(isEitherBlocked).mockResolvedValue(false);
+    jest.mocked(getBlockedUserIds).mockResolvedValue([]);
 
     followRepository = {
       findByUsers: jest.fn(),
