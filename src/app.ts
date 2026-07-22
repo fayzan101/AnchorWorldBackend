@@ -55,6 +55,15 @@ export function createApp(): Application {
   app.use(metricsMiddleware);
 
   app.use("/.well-known", express.static(path.join(process.cwd(), ".well-known")));
+  // Apple App Site Association must be served as JSON (no file extension)
+  app.get("/.well-known/apple-app-site-association", (_req, res) => {
+    res.type("application/json");
+    res.sendFile(path.join(process.cwd(), ".well-known", "apple-app-site-association"));
+  });
+  app.get("/apple-app-site-association", (_req, res) => {
+    res.type("application/json");
+    res.sendFile(path.join(process.cwd(), ".well-known", "apple-app-site-association"));
+  });
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   const apiPrefix = config.server.apiPrefix;

@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.anchor.heart1",
+        "paths": [
+          "/reset-password*",
+          "/invite*"
+        ]
+      }
+    ]
+  }
+}
