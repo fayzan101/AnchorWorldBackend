@@ -112,7 +112,8 @@ describe("MessageService", () => {
       senderId,
       receiverId,
       "Hello",
-      null
+      null,
+      { messageType: "text", mediaUrl: null, durationMs: null }
     );
     expect(chatUnlockRepository.isUnlocked).toHaveBeenCalledWith(
       senderId,
