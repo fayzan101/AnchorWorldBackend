@@ -149,6 +149,38 @@ describe("SocketHandler events", () => {
     expect(notificationService.notifyNewMessage).toHaveBeenCalled();
   });
 
+  it("skips message notification when receiver has that chat open", async () => {
+    const sender = createMockSocket("user-a", "sock-a1");
+    const receiver = createMockSocket("user-b", "sock-b1");
+    handler.handleConnection(sender);
+    handler.handleConnection(receiver);
+    await receiver.trigger("chat_open", { peer_id: "user-a" });
+    notificationService.notifyNewMessage.mockClear();
+    roomEmit.mockClear();
+
+    messageService.sendMessage.mockResolvedValue({
+      id: "msg-live",
+      sender_id: "user-a",
+      receiver_id: "user-b",
+      content: "live",
+      message_type: "text",
+      created_at: new Date(),
+      sender: { id: "user-a", full_name: "Alex" },
+    } as never);
+
+    await sender.trigger("send_message", {
+      receiver_id: "user-b",
+      content: "live",
+      client_message_id: "local-live",
+    });
+
+    expect(roomEmit).toHaveBeenCalledWith(
+      "new_message",
+      expect.objectContaining({ id: "msg-live" })
+    );
+    expect(notificationService.notifyNewMessage).not.toHaveBeenCalled();
+  });
+
   it("still emits message_sent when receiver is offline", async () => {
     const sender = createMockSocket("user-a", "sock-a1");
     handler.handleConnection(sender);

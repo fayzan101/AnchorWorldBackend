@@ -14,6 +14,8 @@ import { userRoom } from "../services/socket-event.service";
 /** userId -> set of active socket ids (supports multi-device). */
 const onlineUsers = new Map<string, Set<string>>();
 const offlineTimers = new Map<string, NodeJS.Timeout>();
+/** socketId -> peer user id currently open in ChatScreen */
+const activeChatBySocket = new Map<string, string>();
 
 /** Debounce so brief reconnects don't flicker Offline. Exported for tests. */
 export const PRESENCE_OFFLINE_DEBOUNCE_MS = 1500;
@@ -25,6 +27,23 @@ export function resetSocketPresenceStateForTests(): void {
   }
   offlineTimers.clear();
   onlineUsers.clear();
+  activeChatBySocket.clear();
+}
+
+/**
+ * True when receiver currently has the chat with peerId open
+ * (so message notifications should be suppressed).
+ */
+export function isUserViewingChatWith(
+  userId: string,
+  peerId: string
+): boolean {
+  const sockets = onlineUsers.get(userId);
+  if (!sockets || sockets.size === 0) return false;
+  for (const sid of sockets) {
+    if (activeChatBySocket.get(sid) === peerId) return true;
+  }
+  return false;
 }
 
 export class SocketHandler {
@@ -76,6 +95,7 @@ export class SocketHandler {
     this.handleSendMessage(socket);
     this.handleTyping(socket);
     this.handleMarkAsRead(socket);
+    this.handleChatActivity(socket);
     this.handlePresence(socket);
     this.handleDisconnect(socket);
   }
@@ -108,6 +128,10 @@ export class SocketHandler {
           receiver_id: message.receiver_id,
           content: message.content,
           created_at: message.created_at,
+          message_type: message.message_type,
+          media_url: message.media_url,
+          duration_ms: message.duration_ms,
+          edited_at: message.edited_at,
           reply_to_message_id: message.reply_to_message_id,
           reply_to: message.reply_to,
           sender: message.sender,
@@ -117,14 +141,21 @@ export class SocketHandler {
           this.emitToUser(receiver_id, "new_message", newMessageEvent);
         }
 
-        this.notificationService
-          .notifyNewMessage(
-            receiver_id,
-            message.sender.full_name,
-            content,
-            message.sender_id
-          )
-          .catch(console.error);
+        // Skip inbox/push while the receiver is actively in this chat.
+        if (!isUserViewingChatWith(receiver_id, senderId)) {
+          const preview =
+            message.message_type === "voice"
+              ? "Voice message"
+              : content;
+          this.notificationService
+            .notifyNewMessage(
+              receiver_id,
+              message.sender.full_name,
+              preview,
+              message.sender_id
+            )
+            .catch(console.error);
+        }
 
         socket.emit("message_sent", {
           success: true,
@@ -186,10 +217,27 @@ export class SocketHandler {
     });
   }
 
+  private handleChatActivity(socket: AuthenticatedSocket): void {
+    socket.on("chat_open", (data: { peer_id?: string; peerId?: string }) => {
+      const peerId = (data?.peer_id || data?.peerId || "").toString().trim();
+      if (!peerId) return;
+      activeChatBySocket.set(socket.id, peerId);
+    });
+
+    socket.on("chat_close", (data?: { peer_id?: string; peerId?: string }) => {
+      const peerId = (data?.peer_id || data?.peerId || "").toString().trim();
+      const current = activeChatBySocket.get(socket.id);
+      if (!peerId || current === peerId) {
+        activeChatBySocket.delete(socket.id);
+      }
+    });
+  }
+
   private handleDisconnect(socket: AuthenticatedSocket): void {
     socket.on("disconnect", () => {
       const userId = socket.user!.id;
       console.log(`User disconnected: ${userId}`);
+      activeChatBySocket.delete(socket.id);
 
       const sockets = onlineUsers.get(userId);
       if (sockets) {

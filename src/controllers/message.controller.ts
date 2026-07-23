@@ -3,12 +3,17 @@ import { MessageService } from '../services/message.service';
 import { ResponseUtil } from '../utils/response.util';
 import { AuthRequest, SendMessageDto, PaginationQuery } from '../types';
 import { emitToUser } from '../services/socket-event.service';
+import { getMessageMediaPath } from '../middleware/message-upload.middleware';
+import { isUserViewingChatWith } from '../socket/socket.handler';
+import { NotificationService } from '../services/notification.service';
 
 export class MessageController {
   private messageService: MessageService;
+  private notificationService: NotificationService;
 
   constructor() {
     this.messageService = new MessageService();
+    this.notificationService = new NotificationService();
   }
 
   sendMessage = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -24,6 +29,78 @@ export class MessageController {
         reply_to_message_id
       );
       ResponseUtil.created(res, message, 'Message sent successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  sendVoiceMessage = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const senderId = req.user!.id;
+      const { userId } = req.params;
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({ success: false, error: 'Voice file is required' });
+        return;
+      }
+
+      const durationRaw = req.body?.duration_ms ?? req.body?.durationMs;
+      const durationMs =
+        durationRaw != null && `${durationRaw}`.trim() !== ''
+          ? parseInt(`${durationRaw}`, 10)
+          : null;
+      const replyTo =
+        (req.body?.reply_to_message_id as string | undefined) ||
+        (req.body?.replyToMessageId as string | undefined) ||
+        null;
+
+      const mediaUrl = getMessageMediaPath(file.filename);
+
+      const message = await this.messageService.sendVoiceMessage(
+        senderId,
+        userId,
+        mediaUrl,
+        Number.isFinite(durationMs as number) ? durationMs : null,
+        replyTo
+      );
+
+      if (message.receiver_id) {
+        emitToUser(message.receiver_id, 'new_message', message);
+        if (!isUserViewingChatWith(message.receiver_id, senderId)) {
+          this.notificationService
+            .notifyNewMessage(
+              message.receiver_id,
+              message.sender?.full_name || 'Someone',
+              'Voice message',
+              senderId
+            )
+            .catch(console.error);
+        }
+      }
+
+      ResponseUtil.created(res, message, 'Voice message sent');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  editMessage = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { messageId } = req.params;
+      const content = (req.body?.content as string) ?? '';
+
+      const message = await this.messageService.editMessage(userId, messageId, content);
+
+      const payload = {
+        message_id: message.id,
+        content: message.content,
+        edited_at: message.edited_at,
+      };
+      emitToUser(message.sender_id, 'message_edited', payload);
+      emitToUser(message.receiver_id, 'message_edited', payload);
+
+      ResponseUtil.success(res, message, 'Message updated');
     } catch (error) {
       next(error);
     }
