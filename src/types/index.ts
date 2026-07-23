@@ -147,6 +147,10 @@ export interface NewMessageEvent {
   receiver_id: string;
   content: string;
   created_at: Date;
+  message_type?: string;
+  media_url?: string | null;
+  duration_ms?: number | null;
+  edited_at?: Date | null;
   reply_to_message_id?: string | null;
   reply_to?: {
     id: string;

@@ -4,6 +4,10 @@ import { authenticateToken } from '../middleware/auth.middleware';
 import { ValidationUtil } from '../utils/validation.util';
 import { validate } from '../middleware/validation.middleware';
 import { messageLimiter } from '../middleware/rateLimiter.middleware';
+import {
+  enforceVoiceSize,
+  messageVoiceUpload,
+} from '../middleware/message-upload.middleware';
 
 const router = Router();
 const messageController = new MessageController();
@@ -40,11 +44,37 @@ router.get('/chat-access/:userId', messageController.getChatAccess);
 router.post('/unlock/:userId', messageLimiter, messageController.unlockChat);
 
 /**
+ * @route   PATCH /api/messages/item/:messageId
+ * @desc    Edit a text message
+ * @access  Private
+ */
+router.patch(
+  '/item/:messageId',
+  messageLimiter,
+  ValidationUtil.editMessage(),
+  validate,
+  messageController.editMessage
+);
+
+/**
  * @route   DELETE /api/messages/item/:messageId
  * @desc    Delete a message (scope=me|everyone)
  * @access  Private
  */
 router.delete('/item/:messageId', messageLimiter, messageController.deleteMessage);
+
+/**
+ * @route   POST /api/messages/voice/:userId
+ * @desc    Send a voice message
+ * @access  Private
+ */
+router.post(
+  '/voice/:userId',
+  messageLimiter,
+  messageVoiceUpload.single('audio'),
+  enforceVoiceSize,
+  messageController.sendVoiceMessage
+);
 
 /**
  * @route   GET /api/messages/:userId

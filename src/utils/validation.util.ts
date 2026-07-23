@@ -120,6 +120,17 @@ export class ValidationUtil {
     ];
   }
 
+  static editMessage(): ValidationChain[] {
+    return [
+      body("content")
+        .trim()
+        .notEmpty()
+        .withMessage("Message content is required")
+        .isLength({ max: 5000 })
+        .withMessage("Message must not exceed 5000 characters"),
+    ];
+  }
+
   static pagination(): ValidationChain[] {
     return [
       query("page")

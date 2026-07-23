@@ -12,6 +12,7 @@ import {
   FREE_CHAT_UNLOCK_MAX,
   PointTypes,
 } from "../constants/point-types";
+import { Message, MessageType } from "../entities/Message.entity";
 import { normalizeChatPair } from "../entities/ChatUnlock.entity";
 import { emitChatUnlocked } from "./socket-event.service";
 
@@ -265,9 +266,23 @@ export class MessageService {
     senderId: string,
     receiverId: string,
     content: string,
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    opts?: {
+      messageType?: MessageType;
+      mediaUrl?: string | null;
+      durationMs?: number | null;
+    }
   ) {
     await this.assertCanMessage(senderId, receiverId);
+
+    const messageType = opts?.messageType ?? MessageType.TEXT;
+    const trimmed = (content ?? "").trim();
+    if (messageType === MessageType.TEXT && !trimmed) {
+      throw new AppError("Message content is required", 400);
+    }
+    if (messageType === MessageType.VOICE && !opts?.mediaUrl) {
+      throw new AppError("Voice media is required", 400);
+    }
 
     let replyPreview: {
       id: string;
@@ -288,7 +303,10 @@ export class MessageService {
       }
       replyPreview = {
         id: parent.id,
-        content: parent.content,
+        content:
+          parent.message_type === MessageType.VOICE
+            ? "Voice message"
+            : parent.content,
         sender_id: parent.sender_id,
       };
     }
@@ -296,24 +314,95 @@ export class MessageService {
     const message = await this.messageRepository.create(
       senderId,
       receiverId,
-      content,
-      replyToMessageId ?? null
+      messageType === MessageType.VOICE ? "" : trimmed,
+      replyToMessageId ?? null,
+      {
+        messageType,
+        mediaUrl: opts?.mediaUrl ?? null,
+        durationMs: opts?.durationMs ?? null,
+      }
     );
 
-    const sender = await this.userRepository.findById(senderId);
+    return this.formatMessagePayload(message, replyPreview);
+  }
 
+  async sendVoiceMessage(
+    senderId: string,
+    receiverId: string,
+    mediaUrl: string,
+    durationMs?: number | null,
+    replyToMessageId?: string | null
+  ) {
+    return this.sendMessage(senderId, receiverId, "", replyToMessageId, {
+      messageType: MessageType.VOICE,
+      mediaUrl,
+      durationMs: durationMs ?? null,
+    });
+  }
+
+  async editMessage(userId: string, messageId: string, content: string) {
+    const trimmed = (content ?? "").trim();
+    if (!trimmed) {
+      throw new AppError("Message content is required", 400);
+    }
+    if (trimmed.length > 5000) {
+      throw new AppError("Message must not exceed 5000 characters", 400);
+    }
+
+    const message = await this.messageRepository.findById(messageId);
+    if (!message) {
+      throw new AppError("Message not found", 404);
+    }
+    if (message.sender_id !== userId) {
+      throw new AppError("Only the sender can edit this message", 403);
+    }
+    if (message.deleted_at) {
+      throw new AppError("Cannot edit a deleted message", 400);
+    }
+    if (message.message_type !== MessageType.TEXT) {
+      throw new AppError("Only text messages can be edited", 400);
+    }
+
+    await this.assertCanMessage(userId, message.receiver_id);
+
+    const updated = await this.messageRepository.updateContent(messageId, trimmed);
+    if (!updated) {
+      throw new AppError("Message not found", 404);
+    }
+
+    return {
+      ...this.formatMessagePayload(updated, null),
+      edited_at: updated.edited_at,
+      sender_id: updated.sender_id,
+      receiver_id: updated.receiver_id,
+    };
+  }
+
+  private formatMessagePayload(
+    message: Message,
+    replyPreview: {
+      id: string;
+      content: string;
+      sender_id: string;
+    } | null
+  ) {
+    const sender = message.sender;
     return {
       id: message.id,
       sender_id: message.sender_id,
       receiver_id: message.receiver_id,
       content: message.content,
+      message_type: message.message_type ?? MessageType.TEXT,
+      media_url: message.media_url,
+      duration_ms: message.duration_ms,
       is_read: message.is_read,
       created_at: message.created_at,
+      edited_at: message.edited_at,
       reply_to_message_id: message.reply_to_message_id,
       reply_to: replyPreview,
       sender: {
-        full_name: sender!.full_name,
-        profile_picture: sender!.profile_picture,
+        full_name: sender?.full_name ?? "",
+        profile_picture: sender?.profile_picture ?? null,
       },
     };
   }
@@ -368,9 +457,13 @@ export class MessageService {
         sender_id: message.sender_id,
         receiver_id: message.receiver_id,
         content: deletedForEveryone ? "" : message.content,
+        message_type: message.message_type ?? MessageType.TEXT,
+        media_url: deletedForEveryone ? null : message.media_url,
+        duration_ms: deletedForEveryone ? null : message.duration_ms,
         is_read: message.is_read,
         read_at: message.read_at,
         created_at: message.created_at,
+        edited_at: message.edited_at,
         deleted_for_everyone: deletedForEveryone,
         deleted_at: message.deleted_at,
         reply_to_message_id: message.reply_to_message_id,
@@ -378,7 +471,10 @@ export class MessageService {
           message.reply_to && !message.reply_to.deleted_at
             ? {
                 id: message.reply_to.id,
-                content: message.reply_to.content,
+                content:
+                  message.reply_to.message_type === MessageType.VOICE
+                    ? "Voice message"
+                    : message.reply_to.content,
                 sender_id: message.reply_to.sender_id,
               }
             : message.reply_to

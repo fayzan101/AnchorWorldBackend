@@ -1,5 +1,5 @@
 import { AppDataSource } from '../config/database';
-import { Message } from '../entities/Message.entity';
+import { Message, MessageType } from '../entities/Message.entity';
 import { MessageHide } from '../entities/MessageHide.entity';
 
 export class MessageRepository {
@@ -10,16 +10,32 @@ export class MessageRepository {
     senderId: string,
     receiverId: string,
     content: string,
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    opts?: {
+      messageType?: string;
+      mediaUrl?: string | null;
+      durationMs?: number | null;
+    }
   ): Promise<Message> {
     const message = this.repository.create({
       sender_id: senderId,
       receiver_id: receiverId,
       content,
       reply_to_message_id: replyToMessageId ?? null,
+      message_type: (opts?.messageType as MessageType) ?? MessageType.TEXT,
+      media_url: opts?.mediaUrl ?? null,
+      duration_ms: opts?.durationMs ?? null,
     });
     const saved = await this.repository.save(message);
     return (await this.findById(saved.id))!;
+  }
+
+  async updateContent(messageId: string, content: string): Promise<Message | null> {
+    await this.repository.update(messageId, {
+      content,
+      edited_at: new Date(),
+    });
+    return await this.findById(messageId);
   }
 
   async findById(id: string): Promise<Message | null> {
@@ -129,6 +145,7 @@ export class MessageRepository {
       deleted_at: new Date(),
       deleted_by_user_id: deletedByUserId,
       content: '',
+      media_url: null,
     });
     return await this.findById(messageId);
   }
@@ -141,7 +158,11 @@ export class MessageRepository {
         u.profile_picture,
         u.is_online,
         u.last_seen,
-        CASE WHEN m.deleted_at IS NOT NULL THEN NULL ELSE m.content END as last_message_content,
+        CASE
+          WHEN m.deleted_at IS NOT NULL THEN NULL
+          WHEN m.message_type = 'voice' THEN 'Voice message'
+          ELSE m.content
+        END as last_message_content,
         m.created_at as last_message_time,
         m.is_read as last_message_is_read,
         m.sender_id as last_message_sender_id,

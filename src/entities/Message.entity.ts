@@ -10,6 +10,11 @@ import {
 } from 'typeorm';
 import { User } from './User.entity';
 
+export enum MessageType {
+  TEXT = 'text',
+  VOICE = 'voice',
+}
+
 @Entity('messages')
 @Index(['sender_id', 'receiver_id'])
 @Index(['receiver_id', 'is_read'])
@@ -26,6 +31,15 @@ export class Message {
   @Column({ type: 'text' })
   content: string;
 
+  @Column({ type: 'varchar', length: 20, default: MessageType.TEXT })
+  message_type: MessageType;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  media_url: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  duration_ms: number | null;
+
   @Column({ type: 'varchar', length: 36, nullable: true })
   reply_to_message_id: string | null;
 
@@ -41,6 +55,9 @@ export class Message {
 
   @Column({ type: 'varchar', length: 36, nullable: true })
   deleted_by_user_id: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  edited_at: Date | null;
 
   @CreateDateColumn()
   created_at: Date;
