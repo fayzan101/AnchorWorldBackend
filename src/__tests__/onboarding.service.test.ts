@@ -47,6 +47,7 @@ describe("OnboardingService", () => {
     } as unknown as jest.Mocked<HobbyRepository>;
 
     circleRepository = {
+      findAll: jest.fn(),
       findFeatured: jest.fn(),
       getJoinedCircleIds: jest.fn(),
     } as unknown as jest.Mocked<CircleRepository>;
@@ -154,7 +155,7 @@ describe("OnboardingService", () => {
 
   it("returns onboarding status with suggested circles", async () => {
     userRepository.findById.mockResolvedValue(createBaseUser());
-    circleRepository.findFeatured.mockResolvedValue([
+    circleRepository.findAll.mockResolvedValue([
       {
         id: "circle-1",
         name: "Fitness",
@@ -171,5 +172,6 @@ describe("OnboardingService", () => {
     expect(status.completed).toBe(false);
     expect(status.suggested_circles).toHaveLength(1);
     expect(status.joined_circle_count).toBe(0);
+    expect(circleRepository.findAll).toHaveBeenCalled();
   });
 });

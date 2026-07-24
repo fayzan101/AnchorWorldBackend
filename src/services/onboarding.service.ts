@@ -62,7 +62,7 @@ export class OnboardingService {
     }
 
     const [circles, joinedIds] = await Promise.all([
-      this.circleRepository.findFeatured(7),
+      this.circleRepository.findAll(),
       this.circleRepository.getJoinedCircleIds(userId),
     ]);
 
