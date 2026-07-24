@@ -71,7 +71,7 @@ router.patch(
   "/:id",
   postUpload.single("media"),
   enforcePostMediaSize,
-  ValidationUtil.createPost(),
+  ValidationUtil.updatePost(),
   validate,
   postController.updatePost
 );

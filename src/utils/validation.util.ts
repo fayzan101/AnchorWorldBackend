@@ -209,9 +209,33 @@ export class ValidationUtil {
         .isLength({ max: 5000 })
         .withMessage("Post content must be at most 5000 characters"),
       body("circle_id")
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isUUID()
         .withMessage("circle_id must be a valid UUID"),
+    ];
+  }
+
+  /** PATCH post — allows clearing circle with empty/`null` circle_id (personal feed). */
+  static updatePost(): ValidationChain[] {
+    return [
+      body("content")
+        .optional({ nullable: true, checkFalsy: true })
+        .trim()
+        .isLength({ max: 5000 })
+        .withMessage("Post content must be at most 5000 characters"),
+      body("circle_id")
+        .optional({ nullable: true, checkFalsy: true })
+        .custom((value) => {
+          if (value === undefined || value === null) return true;
+          const s = String(value).trim();
+          if (s === "" || s.toLowerCase() === "null") return true;
+          const uuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (!uuid.test(s)) {
+            throw new Error("circle_id must be a valid UUID");
+          }
+          return true;
+        }),
     ];
   }
 

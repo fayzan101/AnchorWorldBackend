@@ -856,8 +856,10 @@ paths:
       summary: Chat unlock eligibility for a peer
       description: |
         Returns whether the current user can message this peer, unlock eligibility, and slot usage.
-        Free plan: both users need ≥ **20** points; initiator spends **20** once; max **2** unlocked partners.
-        Basic/Premium: unlimited chat (`has_unlimited_chat: true`).
+        Free plan: initiator spends **50** points once to unlock the pair; max **2** unlocks initiated by the user.
+        After unlock, **both** users can message. Basic/Premium: unlimited chat (`has_unlimited_chat: true`).
+        `blocked` / `blocked_by_me` are true only when **you** blocked the peer (for Unblock UI).
+        If the peer blocked you, access still looks normal (`blocked_by_peer` is never exposed); sends fail with a generic error.
       security:
         - bearerAuth: []
       responses:
@@ -882,9 +884,10 @@ paths:
       tags: [Messages]
       summary: Unlock chat with a peer (free plan)
       description: |
-        Spends **20** Anchor Points from the initiator to permanently unlock messaging with this connection.
-        Both users must have balance ≥ 20. Free plan max **2** unlocks initiated by the user.
+        Spends **50** Anchor Points from the initiator to permanently unlock messaging with this connection (pair unlock — both can chat).
+        Free plan max **2** unlocks initiated by the user.
         Basic/Premium users do not need this (returns already unlocked).
+        Emits `chat_unlocked` to the peer over socket so their composer refreshes.
       security:
         - bearerAuth: []
       responses:
@@ -906,13 +909,151 @@ paths:
                                 type: boolean
                               points_spent:
                                 type: integer
-                                example: 20
+                                example: 50
         "402":
           description: Insufficient points (code may be `INSUFFICIENT_POINTS`)
         "403":
           description: |
-            Locked / slot limit / peer needs points.
-            Possible `code` values: `CHAT_SLOT_LIMIT`, `PEER_INSUFFICIENT_POINTS`
+            Locked / slot limit / not connected / blocked.
+            Possible `code` values: `CHAT_SLOT_LIMIT`
+
+  /messages/item/{messageId}:
+    parameters:
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Messages]
+      summary: Edit a text message
+      description: |
+        Sender-only. Text messages only (not voice). Soft-deleted messages cannot be edited.
+        Broadcasts `message_edited` to both participants over socket.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditMessageRequest"
+      responses:
+        "200":
+          description: Message updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Message"
+        "400":
+          description: Empty content, too long, deleted, or non-text message
+        "403":
+          description: Not the sender or chat locked (`CHAT_LOCKED` / `MESSAGE_UNAVAILABLE`)
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Messages]
+      summary: Delete a message
+      description: |
+        Query `scope=me` (default) hides the message for the current user only.
+        Query `scope=everyone` soft-deletes for both (sender only). Broadcasts `message_deleted` when scope is everyone.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [me, everyone]
+            default: me
+      responses:
+        "200":
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          scope:
+                            type: string
+                            enum: [me, everyone]
+                          deleted_at:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          sender_id:
+                            type: string
+                            format: uuid
+                          receiver_id:
+                            type: string
+                            format: uuid
+        "403":
+          description: Not a participant, or not sender for delete-for-everyone
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /messages/voice/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [Messages]
+      summary: Send a voice message
+      description: |
+        Multipart upload. Field name **`audio`** (m4a/aac/mp3/wav/webm, max 10 MB).
+        Optional form fields: `duration_ms`, `reply_to_message_id`.
+        Same connection/unlock rules as text messages. Emits `new_message` to the peer.
+        Push/inbox notification is skipped if the peer currently has this chat open (`chat_open` socket).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: Voice recording file
+                duration_ms:
+                  type: integer
+                  description: Duration in milliseconds
+                reply_to_message_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Voice message sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Message"
+        "400":
+          description: Missing/invalid audio or file too large
+        "403":
+          description: Not connected, blocked, or chat locked (`CHAT_LOCKED` / `MESSAGE_UNAVAILABLE`)
 
   /messages/{userId}:
     parameters:
@@ -923,6 +1064,7 @@ paths:
       description: |
         Requires mutual connection. Free plan also requires an unlock for this pair (or Basic/Premium).
         Returns `403` with `code: CHAT_LOCKED` when locked.
+        Items include text and voice messages (`message_type`, `media_url`, `duration_ms`, `edited_at`).
       security:
         - bearerAuth: []
       parameters:
@@ -944,10 +1086,12 @@ paths:
           description: Not connected or chat locked (`CHAT_LOCKED`)
     post:
       tags: [Messages]
-      summary: Send message to user
+      summary: Send text message to user
       description: |
         Requires mutual connection and chat access (unlocked or Basic/Premium).
-        Blocked users cannot exchange messages. Locked free chats return `code: CHAT_LOCKED`.
+        If either user blocked the other, send fails with generic `MESSAGE_UNAVAILABLE` (does not reveal blocks).
+        Locked free chats return `code: CHAT_LOCKED`.
+        Push/inbox notification is skipped if the peer currently has this chat open (`chat_open` socket).
       security:
         - bearerAuth: []
       requestBody:
@@ -969,7 +1113,7 @@ paths:
                       data:
                         $ref: "#/components/schemas/Message"
         "403":
-          description: Not connected, blocked, or chat locked (`CHAT_LOCKED`)
+          description: Not connected, unavailable, or chat locked (`CHAT_LOCKED` / `MESSAGE_UNAVAILABLE`)
     delete:
       tags: [Messages]
       summary: Delete conversation with user
@@ -1382,11 +1526,14 @@ paths:
     get:
       tags: [Onboarding]
       summary: Get community onboarding status
+      description: |
+        Returns completion flag and **all** circles for selection (`suggested_circles`),
+        not only featured ones. Featured circles are sorted first.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Onboarding status with suggested circles
+          description: Onboarding status with all circles for selection
           content:
             application/json:
               schema:
@@ -2723,6 +2870,7 @@ components:
           nullable: true
         suggested_circles:
           type: array
+          description: All circles available for onboarding selection (featured first)
           items:
             $ref: "#/components/schemas/CircleListItem"
         joined_circle_count:
@@ -3242,6 +3390,15 @@ components:
           format: uuid
           nullable: true
 
+    EditMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          maxLength: 5000
+          description: Updated text (text messages only)
+
     Message:
       type: object
       properties:
@@ -3256,6 +3413,19 @@ components:
           format: uuid
         content:
           type: string
+          description: Empty for voice messages and soft-deleted messages
+        message_type:
+          type: string
+          enum: [text, voice]
+          default: text
+        media_url:
+          type: string
+          nullable: true
+          description: Relative URL for voice audio (e.g. `/uploads/messages/...`)
+        duration_ms:
+          type: integer
+          nullable: true
+          description: Voice duration in milliseconds
         reply_to_message_id:
           type: string
           format: uuid
@@ -3272,9 +3442,23 @@ components:
             sender_id:
               type: string
               format: uuid
+            deleted_for_everyone:
+              type: boolean
         is_read:
           type: boolean
         read_at:
+          type: string
+          format: date-time
+          nullable: true
+        edited_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when the sender edits a text message
+        deleted_for_everyone:
+          type: boolean
+          description: Present on history items when soft-deleted for everyone
+        deleted_at:
           type: string
           format: date-time
           nullable: true
@@ -3326,6 +3510,7 @@ components:
           properties:
             content:
               type: string
+              description: Text content, or `Voice message` for voice last messages
             created_at:
               type: string
               format: date-time
@@ -3425,6 +3610,13 @@ components:
           type: boolean
         blocked:
           type: boolean
+          description: True only when the current user blocked the peer (alias of blocked_by_me)
+        blocked_by_me:
+          type: boolean
+          description: True when you blocked this peer
+        blocked_by_peer:
+          type: boolean
+          description: Always false in API responses (never expose peer block to the blocked user)
         plan:
           type: string
           enum: [free, basic, premium]
@@ -3432,20 +3624,21 @@ components:
           type: boolean
         unlocked:
           type: boolean
+          description: Pair unlock — either user unlocked this conversation
         can_message:
           type: boolean
         can_unlock:
           type: boolean
         chat_unlock_cost:
           type: integer
-          example: 20
-          description: Temporary unlock cost (raise later)
+          example: 50
+          description: Points spent by initiator to unlock the pair
         chat_slots_used:
           type: integer
         chat_slots_max:
           type: integer
           nullable: true
-          description: null when unlimited (Basic/Premium)
+          description: null when unlimited (Basic/Premium); otherwise 2 for free
         my_points_balance:
           type: integer
         peer_points_balance:
@@ -3455,7 +3648,10 @@ components:
         reason:
           type: string
           nullable: true
-          description: e.g. chat_locked, slot_limit, insufficient_points
+          description: |
+            `null` when messaging is allowed.
+            Possible values: `not_connected`, `blocked_by_me`, `chat_locked`,
+            `slot_limit`, `insufficient_points`.
 
     PlanStatus:
       type: object
