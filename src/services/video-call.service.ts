@@ -190,6 +190,14 @@ export class VideoCallService {
       { ended_at: new Date() }
     );
 
+    this.notificationService
+      .notifyVideoCallCancelled(
+        call.callee_id,
+        callId,
+        (call.call_type as "voice" | "video") ?? "video"
+      )
+      .catch(console.error);
+
     return this.formatCall(updated!);
   }
 
@@ -203,8 +211,9 @@ export class VideoCallService {
       throw new AppError("Not authorized to end this call", 403);
     }
 
+    // Idempotent — already finished; don't throw "Call is not active".
     if (call.status !== VideoCallStatus.ACTIVE) {
-      throw new AppError("Call is not active", 400);
+      return this.formatCall(call);
     }
 
     this.clearExpiryTimer(callId);
@@ -223,7 +232,29 @@ export class VideoCallService {
       }
     }
 
+    const otherId =
+      call.caller_id === userId ? call.callee_id : call.caller_id;
+    this.notificationService
+      .notifyVideoCallEnded(
+        otherId,
+        callId,
+        userId,
+        (call.call_type as "voice" | "video") ?? "video"
+      )
+      .catch(console.error);
+
     return this.formatCall(updated!);
+  }
+
+  async getById(callId: string, userId: string): Promise<VideoCallResponse> {
+    const call = await this.videoCallRepository.findById(callId);
+    if (!call) {
+      throw new AppError("Video call not found", 404);
+    }
+    if (call.caller_id !== userId && call.callee_id !== userId) {
+      throw new AppError("Not authorized to view this call", 403);
+    }
+    return this.formatCall(call);
   }
 
   async getToken(callId: string, userId: string): Promise<VideoCallTokenResponse> {

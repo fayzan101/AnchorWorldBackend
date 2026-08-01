@@ -312,19 +312,10 @@ export class PostService {
 
     const comment = (data.comment ?? "").trim();
     const original = (source.content ?? "").trim();
-    // Keep sharer's note + original text; attribution is via source_post_id UI link.
-    let content = "";
-    if (comment && original) {
-      content = `${comment}\n\n${original}`;
-    } else if (comment) {
-      content = comment;
-    } else {
-      content = original;
-    }
-
     const hasMedia =
       !!source.media_url && source.media_type !== PostMediaType.NONE;
-    if (!content.trim() && !hasMedia) {
+    // Sharer note only — original lives in source_post for FB-style nested preview.
+    if (!comment && !original && !hasMedia) {
       throw new AppError("Nothing to share from this post", 400);
     }
 
@@ -335,9 +326,9 @@ export class PostService {
 
     const post = await this.postRepository.create({
       user_id: userId,
-      content: content.trim(),
-      media_url: source.media_url,
-      media_type: source.media_type,
+      content: comment,
+      media_url: null,
+      media_type: PostMediaType.NONE,
       circle_id: circleId,
       source_post_id: source.id,
       city: user.location_opt_in ? user.city ?? null : null,
@@ -687,25 +678,46 @@ export class PostService {
       postIds
     );
 
-    return posts.map((post) => ({
-      id: post.id,
-      user: this.toPostAuthor(post.user),
-      content: post.content,
-      media_url: post.media_url,
-      media_type: post.media_type,
-      circle_id: post.circle_id,
-      circle_name: post.circle?.name ?? null,
-      city: post.city,
-      country: post.country,
-      like_count: post.like_count,
-      comment_count: post.comment_count,
-      is_liked_by_me: likedIds.has(post.id),
-      created_at: post.created_at,
-      source_post_id: post.source_post_id ?? null,
-      source_author: post.source_post?.user
-        ? this.toPostAuthor(post.source_post.user)
-        : null,
-    }));
+    return posts.map((post) => {
+      const source = post.source_post;
+      return {
+        id: post.id,
+        user: this.toPostAuthor(post.user),
+        content: post.content,
+        media_url: post.media_url,
+        media_type: post.media_type,
+        circle_id: post.circle_id,
+        circle_name: post.circle?.name ?? null,
+        city: post.city,
+        country: post.country,
+        like_count: post.like_count,
+        comment_count: post.comment_count,
+        is_liked_by_me: likedIds.has(post.id),
+        created_at: post.created_at,
+        source_post_id: post.source_post_id ?? null,
+        source_author: source?.user ? this.toPostAuthor(source.user) : null,
+        source_post: source
+          ? {
+              id: source.id,
+              content: source.content ?? "",
+              media_url: source.media_url,
+              media_type: source.media_type,
+              circle_name: source.circle?.name ?? null,
+              created_at: source.created_at,
+              user: source.user
+                ? this.toPostAuthor(source.user)
+                : {
+                    id: "",
+                    full_name: "Member",
+                    profile_picture: null,
+                    city: null,
+                    interests: [],
+                    conversation_style: null,
+                  },
+            }
+          : null,
+      };
+    });
   }
 
   private formatComment(

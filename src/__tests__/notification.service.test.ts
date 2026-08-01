@@ -21,6 +21,9 @@ jest.mock("../services/socket-event.service", () => ({
   emitPostCommented: jest.fn(),
   emitVideoCallRequest: jest.fn(),
   emitVideoCallAccepted: jest.fn(),
+  emitVideoCallCancelled: jest.fn(),
+  emitVideoCallRejected: jest.fn(),
+  emitVideoCallEnded: jest.fn(),
 }));
 
 import { getMessaging } from "../config/firebase";

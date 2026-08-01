@@ -9,6 +9,16 @@ export interface PostAuthor {
   conversation_style: string | null;
 }
 
+export interface SourcePostSummary {
+  id: string;
+  content: string;
+  media_url: string | null;
+  media_type: string;
+  circle_name: string | null;
+  created_at: Date;
+  user: PostAuthor;
+}
+
 export interface PostResponse {
   id: string;
   user: PostAuthor;
@@ -25,6 +35,8 @@ export interface PostResponse {
   created_at: Date;
   source_post_id: string | null;
   source_author: PostAuthor | null;
+  /** Nested original for shared posts (Facebook-style preview). */
+  source_post: SourcePostSummary | null;
 }
 
 export interface PostCommentResponse {

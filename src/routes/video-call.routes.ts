@@ -24,6 +24,7 @@ router.post(
 router.get("/history", videoCallController.getHistory);
 
 router.get("/:id/token", videoCallController.getToken);
+router.get("/:id", videoCallController.getById);
 router.post("/:id/accept", videoCallController.acceptIntro);
 router.post("/:id/reject", videoCallController.rejectIntro);
 router.post("/:id/cancel", videoCallController.cancelIntro);

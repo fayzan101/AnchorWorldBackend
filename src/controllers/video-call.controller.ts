@@ -118,4 +118,19 @@ export class VideoCallController {
       next(error);
     }
   };
+
+  getById = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const call = await this.videoCallService.getById(id, userId);
+      ResponseUtil.success(res, call);
+    } catch (error) {
+      next(error);
+    }
+  };
 }

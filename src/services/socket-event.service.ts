@@ -55,6 +55,27 @@ export function emitVideoCallAccepted(
   emitToUser(receiverId, "video_call_accepted", payload);
 }
 
+export function emitVideoCallCancelled(
+  receiverId: string,
+  payload: { call_id: string; call_type?: "voice" | "video"; reason?: string }
+): void {
+  emitToUser(receiverId, "video_call_cancelled", payload);
+}
+
+export function emitVideoCallRejected(
+  receiverId: string,
+  payload: { call_id: string; call_type?: "voice" | "video" }
+): void {
+  emitToUser(receiverId, "video_call_rejected", payload);
+}
+
+export function emitVideoCallEnded(
+  receiverId: string,
+  payload: { call_id: string; call_type?: "voice" | "video"; ended_by?: string }
+): void {
+  emitToUser(receiverId, "video_call_ended", payload);
+}
+
 export function emitFollowRequestCancelled(
   receiverId: string,
   payload: { follow_id: string; follower_id: string }

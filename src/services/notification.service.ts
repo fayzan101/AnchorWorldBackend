@@ -10,6 +10,9 @@ import {
   emitPostCommented,
   emitPostLiked,
   emitVideoCallAccepted,
+  emitVideoCallCancelled,
+  emitVideoCallEnded,
+  emitVideoCallRejected,
   emitVideoCallRequest,
 } from "./socket-event.service";
 import { AppError } from "../middleware/error.middleware";
@@ -491,6 +494,7 @@ export class NotificationService {
     callType: "voice" | "video" = "video"
   ): Promise<boolean> {
     const kind = callType === "voice" ? "voice call" : "video call";
+    emitVideoCallRejected(callerId, { call_id: callId, call_type: callType });
 
     await this.persistNotification(
       callerId,
@@ -505,6 +509,60 @@ export class NotificationService {
       body: `Your ${kind} was declined`,
       type: NotificationType.VIDEO_CALL_REJECTED,
       data: { screen: "VideoIntro", callId, call_type: callType },
+      highPriority: true,
+    });
+  }
+
+  /** Caller cancelled before answer — notify callee so ringing UI closes. */
+  async notifyVideoCallCancelled(
+    calleeId: string,
+    callId: string,
+    callType: "voice" | "video" = "video"
+  ): Promise<boolean> {
+    emitVideoCallCancelled(calleeId, {
+      call_id: callId,
+      call_type: callType,
+      reason: "cancelled",
+    });
+
+    return await this.sendToUser(calleeId, {
+      title: "Call ended",
+      body: "The caller cancelled",
+      type: NotificationType.VIDEO_CALL_REJECTED,
+      data: {
+        screen: "VideoIntro",
+        callId,
+        call_type: callType,
+        action: "cancelled",
+      },
+      highPriority: true,
+    });
+  }
+
+  /** Either party hung up during an active call — close the other screen. */
+  async notifyVideoCallEnded(
+    otherUserId: string,
+    callId: string,
+    endedBy: string,
+    callType: "voice" | "video" = "video"
+  ): Promise<boolean> {
+    emitVideoCallEnded(otherUserId, {
+      call_id: callId,
+      call_type: callType,
+      ended_by: endedBy,
+    });
+
+    return await this.sendToUser(otherUserId, {
+      title: "Call ended",
+      body: "The other person left the call",
+      type: NotificationType.VIDEO_CALL_REJECTED,
+      data: {
+        screen: "VideoIntro",
+        callId,
+        call_type: callType,
+        action: "ended",
+      },
+      highPriority: true,
     });
   }
 
