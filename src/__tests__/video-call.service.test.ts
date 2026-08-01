@@ -101,6 +101,8 @@ describe("VideoCallService", () => {
       notifyVideoIntroRequest: jest.fn().mockResolvedValue(true),
       notifyVideoCallAccepted: jest.fn().mockResolvedValue(true),
       notifyVideoCallRejected: jest.fn().mockResolvedValue(true),
+      notifyVideoCallCancelled: jest.fn().mockResolvedValue(true),
+      notifyVideoCallEnded: jest.fn().mockResolvedValue(true),
     } as unknown as jest.Mocked<NotificationService>;
 
     service = new VideoCallService(
