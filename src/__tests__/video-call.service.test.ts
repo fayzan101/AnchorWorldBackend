@@ -68,6 +68,7 @@ describe("VideoCallService", () => {
       create: jest.fn(),
       findById: jest.fn(),
       updateStatus: jest.fn(),
+      transitionStatus: jest.fn(),
       countRequestsToday: jest.fn(),
       findHistory: jest.fn(),
     } as unknown as jest.Mocked<VideoCallRepository>;
@@ -256,13 +257,38 @@ describe("VideoCallService", () => {
     videoCallRepository.findById.mockResolvedValue(
       mockCall({ status: VideoCallStatus.ACTIVE, started_at: startedAt })
     );
-    videoCallRepository.updateStatus.mockResolvedValue(
+    videoCallRepository.transitionStatus.mockResolvedValue(
       mockCall({ status: VideoCallStatus.COMPLETED, ended_at: new Date() })
     );
 
     await service.endIntro("call-uuid-123", callerId);
 
     expect(pointsService.awardPointsOncePerReference).toHaveBeenCalledTimes(2);
+    expect(notificationService.notifyVideoCallEnded).toHaveBeenCalledWith(
+      calleeId,
+      "call-uuid-123",
+      callerId,
+      "video"
+    );
+  });
+
+  it("does not re-notify when a second party ends an already completed call", async () => {
+    const active = mockCall({
+      status: VideoCallStatus.ACTIVE,
+      started_at: new Date(),
+    });
+    const completed = mockCall({
+      status: VideoCallStatus.COMPLETED,
+      ended_at: new Date(),
+    });
+    videoCallRepository.findById
+      .mockResolvedValueOnce(active)
+      .mockResolvedValueOnce(completed);
+    videoCallRepository.transitionStatus.mockResolvedValue(null);
+
+    await service.endIntro("call-uuid-123", calleeId);
+
+    expect(notificationService.notifyVideoCallEnded).not.toHaveBeenCalled();
   });
 
   it("returns agora token with call_type for participant", async () => {

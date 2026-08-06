@@ -25,6 +25,29 @@ export class VideoCallRepository {
     return this.findById(id);
   }
 
+  /**
+   * Atomically transition status only when current status matches [fromStatus].
+   * Returns the updated call when the transition won; null if already transitioned.
+   */
+  async transitionStatus(
+    id: string,
+    fromStatus: VideoCallStatus,
+    toStatus: VideoCallStatus,
+    extra: Partial<VideoCall> = {}
+  ): Promise<VideoCall | null> {
+    const result = await this.repository
+      .createQueryBuilder()
+      .update(VideoCall)
+      .set({ status: toStatus, ...extra })
+      .where("id = :id AND status = :fromStatus", { id, fromStatus })
+      .execute();
+
+    if (!result.affected || result.affected < 1) {
+      return null;
+    }
+    return this.findById(id);
+  }
+
   async countRequestsToday(callerId: string): Promise<number> {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);

@@ -48,6 +48,7 @@ describe("NotificationService", () => {
     userRepository = {
       findById: jest.fn(),
       update: jest.fn(),
+      clearFcmTokenFromOtherUsers: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<UserRepository>;
 
     notificationRepository = {

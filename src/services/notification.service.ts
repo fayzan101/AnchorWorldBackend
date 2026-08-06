@@ -434,6 +434,9 @@ export class NotificationService {
     callId: string,
     callType: "voice" | "video" = "video"
   ): Promise<boolean> {
+    // Never notify the caller about their own outgoing call.
+    if (!calleeId || calleeId === callerId) return false;
+
     const isVoice = callType === "voice";
     const title = isVoice ? "Incoming voice call" : "Incoming video call";
     const body = isVoice
@@ -519,6 +522,8 @@ export class NotificationService {
     callId: string,
     callType: "voice" | "video" = "video"
   ): Promise<boolean> {
+    if (!calleeId) return false;
+
     emitVideoCallCancelled(calleeId, {
       call_id: callId,
       call_type: callType,
@@ -526,7 +531,7 @@ export class NotificationService {
     });
 
     return await this.sendToUser(calleeId, {
-      title: "Call ended",
+      title: "Call cancelled",
       body: "The caller cancelled",
       type: NotificationType.VIDEO_CALL_REJECTED,
       data: {
@@ -546,6 +551,9 @@ export class NotificationService {
     endedBy: string,
     callType: "voice" | "video" = "video"
   ): Promise<boolean> {
+    // Never notify the person who hung up.
+    if (!otherUserId || otherUserId === endedBy) return false;
+
     emitVideoCallEnded(otherUserId, {
       call_id: callId,
       call_type: callType,
@@ -561,6 +569,7 @@ export class NotificationService {
         callId,
         call_type: callType,
         action: "ended",
+        endedBy,
       },
       highPriority: true,
     });
@@ -576,7 +585,13 @@ export class NotificationService {
   }
 
   async updateFCMToken(userId: string, fcmToken: string): Promise<void> {
-    await this.userRepository.update(userId, { fcm_token: fcmToken });
+    const token = (fcmToken || "").trim();
+    if (!token) return;
+
+    // One device token must belong to at most one user — otherwise the caller
+    // can receive their own "X is calling you" push after account switch.
+    await this.userRepository.clearFcmTokenFromOtherUsers(userId, token);
+    await this.userRepository.update(userId, { fcm_token: token });
     console.log(`✅ FCM token updated for user ${userId}`);
   }
 

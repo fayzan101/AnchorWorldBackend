@@ -218,11 +218,19 @@ export class VideoCallService {
 
     this.clearExpiryTimer(callId);
     const endedAt = new Date();
-    const updated = await this.videoCallRepository.updateStatus(
+    // Only the first successful hangup notifies the peer (avoids "you left"
+    // showing up as "the other person left" on the actor's device).
+    const updated = await this.videoCallRepository.transitionStatus(
       callId,
+      VideoCallStatus.ACTIVE,
       VideoCallStatus.COMPLETED,
       { ended_at: endedAt }
     );
+
+    if (!updated) {
+      const latest = await this.videoCallRepository.findById(callId);
+      return this.formatCall(latest ?? call);
+    }
 
     if (call.started_at) {
       const durationSeconds =
@@ -234,16 +242,18 @@ export class VideoCallService {
 
     const otherId =
       call.caller_id === userId ? call.callee_id : call.caller_id;
-    this.notificationService
-      .notifyVideoCallEnded(
-        otherId,
-        callId,
-        userId,
-        (call.call_type as "voice" | "video") ?? "video"
-      )
-      .catch(console.error);
+    if (otherId && otherId !== userId) {
+      this.notificationService
+        .notifyVideoCallEnded(
+          otherId,
+          callId,
+          userId,
+          (call.call_type as "voice" | "video") ?? "video"
+        )
+        .catch(console.error);
+    }
 
-    return this.formatCall(updated!);
+    return this.formatCall(updated);
   }
 
   async getById(callId: string, userId: string): Promise<VideoCallResponse> {
