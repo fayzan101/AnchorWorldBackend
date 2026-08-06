@@ -136,12 +136,12 @@ describe("OnboardingService", () => {
       interests: ["hobby-1", "hobby-2"],
       conversation_style: "Share posts and tips",
       humor_type: "Practical and informative",
-      suggested_circle_ids: ["circle-1", "circle-2"],
+      suggested_circle_ids: ["circle-1"],
       location_opt_in: true,
     });
 
     expect(userRepository.save).toHaveBeenCalled();
-    expect(circleService.joinCircle).toHaveBeenCalledTimes(2);
+    expect(circleService.joinCircle).toHaveBeenCalledTimes(1);
     expect(pointsService.awardPointsOnce).toHaveBeenCalledWith(
       userId,
       PointAmounts[PointTypes.PROFILE_COMPLETE],
@@ -150,7 +150,7 @@ describe("OnboardingService", () => {
       "Community onboarding completed"
     );
     expect(result.points_awarded).toBe(PointAmounts[PointTypes.PROFILE_COMPLETE]);
-    expect(result.circles_joined).toBe(2);
+    expect(result.circles_joined).toBe(1);
   });
 
   it("returns onboarding status with suggested circles", async () => {

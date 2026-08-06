@@ -303,8 +303,8 @@ export class ValidationUtil {
         .isArray({ min: 2 })
         .withMessage("Pick at least 2 topics"),
       body("suggested_circle_ids")
-        .isArray({ min: 2 })
-        .withMessage("Join at least 2 circles"),
+        .isArray({ min: 1, max: 1 })
+        .withMessage("Join exactly 1 circle"),
       body("suggested_circle_ids.*")
         .isUUID()
         .withMessage("Each suggested_circle_id must be a valid UUID"),

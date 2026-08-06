@@ -26,7 +26,8 @@ const REJECTED_ONBOARDING_FIELDS = [
   "kids",
 ] as const;
 
-const MIN_SUGGESTED_CIRCLES = 2;
+const MIN_SUGGESTED_CIRCLES = 1;
+const MAX_SUGGESTED_CIRCLES = 1;
 
 export class OnboardingService {
   private userRepository: UserRepository;
@@ -108,12 +109,13 @@ export class OnboardingService {
       throw new AppError("City is required for community onboarding", 400);
     }
 
+    const circleCount = body.suggested_circle_ids?.length ?? 0;
     if (
-      !body.suggested_circle_ids ||
-      body.suggested_circle_ids.length < MIN_SUGGESTED_CIRCLES
+      circleCount < MIN_SUGGESTED_CIRCLES ||
+      circleCount > MAX_SUGGESTED_CIRCLES
     ) {
       throw new AppError(
-        `Join at least ${MIN_SUGGESTED_CIRCLES} suggested circles`,
+        `Join exactly ${MAX_SUGGESTED_CIRCLES} suggested circle`,
         400
       );
     }
