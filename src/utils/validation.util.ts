@@ -304,7 +304,7 @@ export class ValidationUtil {
         .withMessage("Pick at least 2 topics"),
       body("suggested_circle_ids")
         .isArray({ min: 1, max: 1 })
-        .withMessage("Join exactly 1 circle"),
+        .withMessage("Pick 1 circle to join"),
       body("suggested_circle_ids.*")
         .isUUID()
         .withMessage("Each suggested_circle_id must be a valid UUID"),
