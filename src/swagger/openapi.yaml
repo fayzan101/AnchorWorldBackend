@@ -2854,7 +2854,8 @@ components:
           type: boolean
         suggested_circle_ids:
           type: array
-          minItems: 2
+          minItems: 1
+          maxItems: 1
           items:
             type: string
             format: uuid

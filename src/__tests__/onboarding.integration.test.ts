@@ -32,7 +32,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .get("/api/circles")
       .set("Authorization", `Bearer ${accessToken}`);
 
-    circleIds = circlesRes.body.data.slice(0, 2).map((c: { id: string }) => c.id);
+    circleIds = circlesRes.body.data.slice(0, 1).map((c: { id: string }) => c.id);
 
     const hobbiesRes = await request(app)
       .get("/api/hobbies")
@@ -93,7 +93,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
     expect(res.status).toBe(200);
     expect(res.body.data.profile_completed).toBe(true);
     expect(res.body.data.onboarding_completed_at).toBeTruthy();
-    expect(res.body.data.circles_joined).toBeGreaterThanOrEqual(2);
+    expect(res.body.data.circles_joined).toBeGreaterThanOrEqual(1);
   });
 
   it("updates profile location", async () => {

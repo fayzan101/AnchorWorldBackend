@@ -56,9 +56,9 @@ export class ReferralService {
     throw new AppError("Could not generate referral code", 500);
   }
 
-  /** Fresh invite code on each open of Invite & earn (default rotate=true). */
+  /** Returns the user's stable invite code (does not rotate unless rotate=true). */
   async getMine(userId: string, options?: { rotate?: boolean }) {
-    const rotate = options?.rotate !== false;
+    const rotate = options?.rotate === true;
     const code = rotate
       ? await this.rotateReferralCode(userId)
       : await this.ensureReferralCode(userId);

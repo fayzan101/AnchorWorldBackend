@@ -175,6 +175,22 @@ export class UserRepository {
     return await this.findById(id);
   }
 
+  /** Detach an FCM token from every account except [keepUserId]. */
+  async clearFcmTokenFromOtherUsers(
+    keepUserId: string,
+    fcmToken: string
+  ): Promise<void> {
+    await this.repository
+      .createQueryBuilder()
+      .update(User)
+      .set({ fcm_token: null })
+      .where("fcm_token = :fcmToken AND id != :keepUserId", {
+        fcmToken,
+        keepUserId,
+      })
+      .execute();
+  }
+
   async updateOnlineStatus(id: string, isOnline: boolean): Promise<void> {
     await this.repository.update(id, {
       is_online: isOnline,
