@@ -24,20 +24,27 @@ export const FREE_CHAT_UNLOCK_MAX = 2;
 
 export type PointType = (typeof PointTypes)[keyof typeof PointTypes];
 
+/**
+ * Standard mid economy:
+ * - Meaningful actions pay more than passive ones
+ * - Daily login is a small streak nudge (not a farm)
+ * - ~2–3 weeks of normal use → first Premium discount tier (500)
+ * - Spammy actions stay low and daily-capped in post.service
+ */
 export const PointAmounts: Record<string, number> = {
   // One-time / rare
-  [PointTypes.PROFILE_COMPLETE]: 20,
-  [PointTypes.FIRST_POST]: 25,
-  [PointTypes.REFERRAL_REFERRER]: 25,
-  [PointTypes.REFERRAL_REFEREE]: 15,
-  [PointTypes.VIDEO_INTRO_COMPLETED]: 15,
-  // Repeatable — kept low to discourage spam farming
-  [PointTypes.POST_CREATED]: 5,
-  [PointTypes.CIRCLE_POST]: 7,
-  [PointTypes.CIRCLE_JOINED]: 5,
-  [PointTypes.CONNECTION_MADE]: 10,
+  [PointTypes.PROFILE_COMPLETE]: 15,
+  [PointTypes.FIRST_POST]: 15,
+  [PointTypes.REFERRAL_REFERRER]: 20,
+  [PointTypes.REFERRAL_REFEREE]: 10,
+  [PointTypes.VIDEO_INTRO_COMPLETED]: 10,
+  // Repeatable
+  [PointTypes.POST_CREATED]: 3,
+  [PointTypes.CIRCLE_POST]: 4,
+  [PointTypes.CIRCLE_JOINED]: 3,
+  [PointTypes.CONNECTION_MADE]: 8,
   [PointTypes.COMMENT_CREATED]: 1,
   [PointTypes.COMMENT_RECEIVED]: 1,
   [PointTypes.POST_LIKED_RECEIVED]: 1,
-  [PointTypes.DAILY_LOGIN]: 2,
+  [PointTypes.DAILY_LOGIN]: 1,
 };

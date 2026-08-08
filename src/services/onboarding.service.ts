@@ -114,10 +114,7 @@ export class OnboardingService {
       circleCount < MIN_SUGGESTED_CIRCLES ||
       circleCount > MAX_SUGGESTED_CIRCLES
     ) {
-      throw new AppError(
-        `Join exactly ${MAX_SUGGESTED_CIRCLES} suggested circle`,
-        400
-      );
+      throw new AppError("Pick 1 circle to join", 400);
     }
 
     const user = await this.userRepository.findById(userId);
