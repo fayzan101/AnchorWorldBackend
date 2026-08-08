@@ -1,6 +1,7 @@
 import request from "supertest";
 import { createApp } from "../app";
 import { AppDataSource, initializeDatabase } from "../config/database";
+import { PointAmounts, PointTypes } from "../constants/point-types";
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
 
@@ -8,6 +9,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
   const app = createApp();
   let accessToken: string;
   const uniqueEmail = `points-test-${Date.now()}@example.com`;
+  const dailyLoginPoints = PointAmounts[PointTypes.DAILY_LOGIN];
 
   beforeAll(async () => {
     await initializeDatabase();
@@ -41,7 +43,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(balanceRes.status).toBe(200);
-    expect(balanceRes.body.data.balance).toBeGreaterThanOrEqual(10);
+    expect(balanceRes.body.data.balance).toBeGreaterThanOrEqual(dailyLoginPoints);
 
     const secondLogin = await request(app).post("/api/auth/login").send({
       email: uniqueEmail,

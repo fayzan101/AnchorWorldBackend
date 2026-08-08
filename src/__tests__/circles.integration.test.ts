@@ -2,6 +2,7 @@ import request from "supertest";
 import { createApp } from "../app";
 import { AppDataSource, initializeDatabase } from "../config/database";
 import { seedCircles } from "../scripts/seed-circles";
+import { PointAmounts, PointTypes } from "../constants/point-types";
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
 
@@ -10,6 +11,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
   let accessToken: string;
   let circleId: string;
   const uniqueEmail = `circles-test-${Date.now()}@example.com`;
+  const circleJoinPoints = PointAmounts[PointTypes.CIRCLE_JOINED];
 
   beforeAll(async () => {
     await initializeDatabase();
@@ -63,14 +65,14 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(joinRes.status).toBe(201);
-    expect(joinRes.body.data.points_awarded).toBe(5);
+    expect(joinRes.body.data.points_awarded).toBe(circleJoinPoints);
     expect(joinRes.body.data.circle.is_joined).toBe(true);
 
     const balanceRes = await request(app)
       .get("/api/points/balance")
       .set("Authorization", `Bearer ${accessToken}`);
 
-    expect(balanceRes.body.data.balance).toBeGreaterThanOrEqual(5);
+    expect(balanceRes.body.data.balance).toBeGreaterThanOrEqual(circleJoinPoints);
 
     const profileRes = await request(app)
       .get("/api/profile")
