@@ -26,10 +26,10 @@ import { getBlockedUserIds } from "../utils/block.util";
 import { PointTypes, PointAmounts } from "../constants/point-types";
 
 const DAILY_CAPS = {
-  POST_CREATED_EVENTS: 3,
+  POST_CREATED_EVENTS: 2,
   CIRCLE_POST_EVENTS: 2,
-  LIKES_RECEIVED_POINTS: 50,
-  COMMENTS_RECEIVED_POINTS: 30,
+  LIKES_RECEIVED_POINTS: 15,
+  COMMENTS_RECEIVED_POINTS: 15,
   COMMENT_CREATED_EVENTS: 5,
 };
 

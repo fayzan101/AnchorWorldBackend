@@ -98,7 +98,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
     expect(connectionsRes.body.data.connections[0].id).toBe(userBId);
   });
 
-  it("awards +10 connection points to both users once", async () => {
+  it("awards +8 connection points to both users once", async () => {
     const balanceA = await request(app)
       .get("/api/points/balance")
       .set("Authorization", `Bearer ${tokenA}`);
@@ -106,8 +106,8 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       .get("/api/points/balance")
       .set("Authorization", `Bearer ${tokenB}`);
 
-    expect(balanceA.body.data.balance).toBeGreaterThanOrEqual(10);
-    expect(balanceB.body.data.balance).toBeGreaterThanOrEqual(10);
+    expect(balanceA.body.data.balance).toBeGreaterThanOrEqual(8);
+    expect(balanceB.body.data.balance).toBeGreaterThanOrEqual(8);
 
     const txA = await request(app)
       .get("/api/points/transactions")
@@ -116,7 +116,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
       (tx: { type: string }) => tx.type === "connection_made"
     );
     expect(connectionTx.length).toBeGreaterThanOrEqual(1);
-    expect(connectionTx[0].amount).toBe(10);
+    expect(connectionTx[0].amount).toBe(8);
   });
 
   it("includes connection_status on user profile", async () => {
@@ -140,7 +140,7 @@ const runIntegration = process.env.RUN_INTEGRATION_TESTS === "true";
 
   it("unlocks chat with points then allows messaging between connected users", async () => {
     const points = new PointsService();
-    // Connection awards 10; unlock needs both ≥ CHAT_UNLOCK_COST and initiator spend.
+    // Connection awards 8; unlock needs both ≥ CHAT_UNLOCK_COST and initiator spend.
     await points.awardPoints(
       userAId,
       CHAT_UNLOCK_COST,

@@ -6,6 +6,7 @@ import { EntityManager } from "typeorm";
 import { NotificationService } from "./notification.service";
 import { emitPointsUpdated } from "./socket-event.service";
 import { POINTS_MILESTONE_BALANCE } from "../constants/notification-types";
+import { PointAmounts, PointTypes } from "../constants/point-types";
 
 function isDeadlock(error: unknown): boolean {
   const err = error as { code?: string; errno?: number };
@@ -162,13 +163,19 @@ export class PointsService {
   async awardDailyLogin(userId: string): Promise<AwardPointsResult> {
     const alreadyToday = await this.pointsRepository.hasEarnedToday(
       userId,
-      "daily_login"
+      PointTypes.DAILY_LOGIN
     );
     if (alreadyToday) {
       const wallet = await this.pointsRepository.getOrCreateWallet(userId);
       return { balance: wallet.balance, awarded: 0, skipped: true };
     }
-    return this.awardPoints(userId, 10, "daily_login", undefined, "Daily login bonus");
+    return this.awardPoints(
+      userId,
+      PointAmounts[PointTypes.DAILY_LOGIN],
+      PointTypes.DAILY_LOGIN,
+      undefined,
+      "Daily login bonus"
+    );
   }
 
   async spendPoints(
@@ -202,6 +209,7 @@ export class PointsService {
         manager
       );
 
+      emitPointsUpdated(userId, { balance: wallet.balance });
       return { balance: wallet.balance, spent: amount };
     });
   }
