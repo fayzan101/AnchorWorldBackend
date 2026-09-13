@@ -18,8 +18,8 @@ export type PremiumDiscountTier = {
 
 export type PlanTier = "free" | "basic" | "premium";
 
-export const PREMIUM_BASE_PRICE_USD = 9.99;
-export const BASIC_BASE_PRICE_USD = 4.99;
+export const PREMIUM_BASE_PRICE_USD = 49;
+export const BASIC_BASE_PRICE_USD = 19;
 export const BASIC_PRODUCT_ID = "basic_monthly";
 
 /** Points unlock subscription discounts via separate store product SKUs. */
