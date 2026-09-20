@@ -52,7 +52,10 @@ export class RevenueCatService {
     );
 
     if (resp.status === 404) {
-      throw new AppError("No RevenueCat subscriber found for this user", 404);
+      throw new AppError(
+        "Purchase not synced yet. Wait a moment and tap Restore purchases.",
+        404
+      );
     }
 
     if (!resp.ok) {
