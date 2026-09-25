@@ -23,6 +23,18 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/** Signup only — allow multiple new accounts within a short window. */
+export const registerLimiter = rateLimit({
+  windowMs: 2 * 60 * 1000, // 2 minutes
+  max: 10,
+  message: {
+    success: false,
+    error: 'Too many signups, please try again in a couple of minutes',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const messageLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100,

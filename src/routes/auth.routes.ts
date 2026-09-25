@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { ValidationUtil } from '../utils/validation.util';
-import { authLimiter } from '../middleware/rateLimiter.middleware';
+import { authLimiter, registerLimiter } from '../middleware/rateLimiter.middleware';
 import { validate } from '../middleware/validation.middleware';
 
 const router = Router();
@@ -14,7 +14,7 @@ const authController = new AuthController();
  */
 router.post(
   '/register',
-  authLimiter,
+  registerLimiter,
   ValidationUtil.register(),
   validate,
   authController.register
